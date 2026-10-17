@@ -1,0 +1,18 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Bảng tối thiểu để kiểm tra kết nối. ERD đầy đủ làm ở Buổi 5.
+model Room {
+  id       Int    @id @default(autoincrement())
+  code     String @unique
+  building String
+  capacity Int
+
+  @@map("rooms")
+}
