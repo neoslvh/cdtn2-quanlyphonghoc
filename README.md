@@ -12,7 +12,9 @@ backend/    API Node.js, Express, Prisma
   prisma/     schema, migration và dữ liệu mẫu
   tests/      kiểm thử bằng Jest và Supertest
 frontend/   giao diện React, Vite, Ant Design
-docs/       SRS, Product Backlog, tài liệu thiết kế kiến trúc
+docs/       SRS, Product Backlog, tài liệu thiết kế kiến trúc, API_XacThuc.md
+.github/    CI, mẫu pull request, CODEOWNERS
+CONTRIBUTING.md   quy trình nhánh, commit, pull request
 docker-compose.yml   chạy cả cơ sở dữ liệu, API và giao diện
 ```
 
@@ -78,3 +80,7 @@ npm test
 ```
 
 Bộ kiểm thử có 35 ca: hai ca cho `/api/hello`, còn lại cho đăng nhập, phiên làm việc, cấp tài khoản, đổi và đặt lại mật khẩu, duyệt tài khoản và đăng ký tự do. Tất cả dùng cơ sở dữ liệu giả lập nên chạy được mà không cần PostgreSQL.
+
+## 5. Quy trình làm việc nhóm
+
+Mỗi công việc làm trên một nhánh riêng tạo từ `main`, đặt tên theo dạng `feat/pb-03-quan-ly-phong`, rồi mở pull request vào `main`. Pull request phải qua kiểm tra tự động (kiểm thử backend, build frontend) và được người phụ trách duyệt trước khi gộp. Quy ước đặt tên nhánh, viết commit và cách review xem trong `CONTRIBUTING.md`.
