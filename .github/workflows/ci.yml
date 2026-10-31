@@ -1,11 +1,11 @@
 name: CI
 
-# Chạy cho mọi pull request vào main và mỗi lần gộp vào main.
+# Chạy cho mọi pull request vào staging hoặc main và mỗi lần gộp vào hai nhánh này.
 on:
   pull_request:
-    branches: [main]
+    branches: [staging, main]
   push:
-    branches: [main]
+    branches: [staging, main]
 
 concurrency:
   group: ci-${{ github.ref }}

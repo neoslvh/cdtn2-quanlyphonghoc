@@ -8,7 +8,7 @@
 
 ## Nhánh và commit
 
-- [ ] Tên nhánh theo quy ước `loai/ma-pb-mo-ta-ngan` (xem CONTRIBUTING.md)
+- [ ] Tên nhánh theo quy ước `loai/ten-goi-viec`, PB liên quan ghi ở tiêu đề PR (xem CONTRIBUTING.md)
 - [ ] Commit viết theo dạng `loai(pham-vi): mô tả`, không có dòng đồng tác giả
 
 ## Cách kiểm tra

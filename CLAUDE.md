@@ -1,6 +1,6 @@
 # Hướng dẫn cho Claude khi làm việc trong kho này
 
-Kho chứa đồ án Hệ thống web quản lý phòng học và thiết bị. Quy trình đầy đủ nằm trong `CONTRIBUTING.md`, cách chạy trong `README.md`. Khi review PR hoặc viết mã, làm theo các điểm dưới đây.
+Kho chứa đồ án Hệ thống web quản lý phòng học và thiết bị. Nhánh `staging` là nơi gộp PR của thành viên, nhánh `main` chỉ do người phụ trách đưa mã lên từ `staging`. Quy trình đầy đủ nằm trong `CONTRIBUTING.md`, cách chạy trong `README.md`. Khi review PR hoặc viết mã, làm theo các điểm dưới đây.
 
 ## 1. Ghi công
 
