@@ -16,3 +16,31 @@ model Room {
 
   @@map("rooms")
 }
+
+// Đơn vị theo ERD v4.1: APPROVAL_UNIT, FACILITY_UNIT hoặc REQUESTER_UNIT.
+model Organization {
+  id     String  @id @default(uuid()) @db.Uuid
+  name   String  @db.VarChar(150)
+  type   String  @db.VarChar(30)
+  active Boolean @default(true)
+  users  User[]
+
+  @@map("organization")
+}
+
+// role: REQUESTER, APPROVER, FACILITY_STAFF, ADMIN. status: PENDING (chờ duyệt), ACTIVE hoặc LOCKED.
+model User {
+  id                 String       @id @default(uuid()) @db.Uuid
+  organizationId     String       @map("organization_id") @db.Uuid
+  organization       Organization @relation(fields: [organizationId], references: [id])
+  fullName           String       @map("full_name") @db.VarChar(150)
+  email              String       @unique @db.VarChar(255)
+  passwordHash       String       @map("password_hash") @db.VarChar(255)
+  role               String       @db.VarChar(30)
+  status             String       @db.VarChar(20)
+  // Tài khoản do admin cấp hoặc đặt lại mật khẩu thì phải đổi mật khẩu ở lần đăng nhập đầu.
+  mustChangePassword Boolean      @default(false) @map("must_change_password")
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("user")
+}
