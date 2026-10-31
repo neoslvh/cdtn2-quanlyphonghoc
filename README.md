@@ -2,7 +2,7 @@
 
 Mã nguồn đồ án Chuyên đề Tốt nghiệp 2 của nhóm Trần Đăng Khoa, Lưu Văn Hưng, Nguyễn Gia Huy. Kiến trúc và lý do chọn công nghệ được trình bày trong tài liệu docs/Buoi4_ThietKeKienTruc_CongNghe.docx.
 
-Ở phiên bản hiện tại, project mới có phần khung chạy thông từ đầu đến cuối: trang React gọi API `/api/hello`, API đếm số phòng trong PostgreSQL và trả kết quả về để hiển thị.
+Ở phiên bản hiện tại, project có khung chạy thông từ đầu đến cuối (API `/api/hello`) và chức năng đăng nhập, đăng xuất, cấp tài khoản và đổi mật khẩu (FR-01, FR-02, Sprint 2).
 
 ## 1. Cấu trúc thư mục
 
@@ -12,7 +12,9 @@ backend/    API Node.js, Express, Prisma
   prisma/     schema, migration và dữ liệu mẫu
   tests/      kiểm thử bằng Jest và Supertest
 frontend/   giao diện React, Vite, Ant Design
-docs/       SRS, Product Backlog, tài liệu thiết kế kiến trúc
+docs/       SRS, Product Backlog, tài liệu thiết kế kiến trúc, API_XacThuc.md
+.github/    CI, mẫu pull request, CODEOWNERS
+CONTRIBUTING.md   quy trình nhánh, commit, pull request
 docker-compose.yml   chạy cả cơ sở dữ liệu, API và giao diện
 ```
 
@@ -24,7 +26,21 @@ Máy cần cài Docker Desktop. Tại thư mục gốc của project, chạy:
 docker compose up --build
 ```
 
-Sau khi các container khởi động xong, mở http://localhost:8080. Trang sẽ hiện lời chào từ API và số phòng mẫu là 2. Lần chạy đầu, container API tự tạo bảng và nạp dữ liệu mẫu.
+Sau khi các container khởi động xong, mở http://localhost:8080. Lần chạy đầu, container API tự tạo bảng và nạp dữ liệu mẫu.
+
+### 2.1. Tài khoản mẫu
+
+Mật khẩu mặc định của ba tài khoản dưới đây là `Demo@12345` (đổi bằng biến `SEED_PASSWORD`). Chỉ dùng cho phát triển và demo.
+
+| Email | Vai trò |
+|---|---|
+| admin@qlphong.local | ADMIN, duyệt tài khoản tại mục Tài khoản |
+| csvc@qlphong.local | FACILITY_STAFF |
+| daotao@qlphong.local | APPROVER |
+
+Tài khoản do quản trị viên cấp (FR-01, US-17): ADMIN vào mục Tài khoản, chọn Thêm tài khoản, hệ thống sinh mật khẩu tạm và chỉ hiện một lần. Người dùng bắt buộc đổi mật khẩu ở lần đăng nhập đầu, cũng như sau khi ADMIN đặt lại mật khẩu. Hiện chưa tích hợp được tài khoản của trường nên không dùng đăng nhập một lần (SSO).
+
+Trang đăng ký tự do (/register, tài khoản chờ ADMIN duyệt) có sẵn nhưng mặc định tắt. Đặt biến môi trường `ALLOW_SELF_REGISTRATION=true` cho API để mở.
 
 ## 3. Chạy trực tiếp trên máy
 
@@ -32,7 +48,7 @@ Cách này dùng khi lập trình, cần Node.js 24 và PostgreSQL đã cài s�
 
 ### 3.1. Backend
 
-Tạo cơ sở dữ liệu tên `qlphong`, chép tệp `backend/.env.example` thành `backend/.env` và sửa lại tài khoản, mật khẩu PostgreSQL của máy mình. Sau đó chạy:
+Tạo cơ sở dữ liệu tên `qlphong`, chép tệp `backend/.env.example` thành `backend/.env`, sửa lại tài khoản, mật khẩu PostgreSQL của máy mình và đặt `JWT_SECRET` riêng. Sau đó chạy:
 
 ```
 cd backend
@@ -63,4 +79,8 @@ cd backend
 npm test
 ```
 
-Bộ kiểm thử hiện có hai ca cho route `/api/hello`: trả về đúng lời chào và số phòng, và trả về mã 500 khi cơ sở dữ liệu lỗi. Hai ca này dùng cơ sở dữ liệu giả lập nên chạy được mà không cần PostgreSQL.
+Bộ kiểm thử có 35 ca: hai ca cho `/api/hello`, còn lại cho đăng nhập, phiên làm việc, cấp tài khoản, đổi và đặt lại mật khẩu, duyệt tài khoản và đăng ký tự do. Tất cả dùng cơ sở dữ liệu giả lập nên chạy được mà không cần PostgreSQL.
+
+## 5. Quy trình làm việc nhóm
+
+Mỗi công việc làm trên một nhánh riêng tạo từ `staging`, đặt tên theo gói việc, ví dụ `feat/danh-muc-phong-thiet-bi`, mỗi người giữ tối đa một nhánh đang làm, rồi mở pull request vào `staging`. Pull request phải qua kiểm tra tự động (kiểm thử backend, build frontend) và được người phụ trách duyệt trước khi gộp. PR vào `staging` được Claude review tự động, đạt thì tự gộp, không đạt thì dừng kèm góp ý. Nhánh `main` chỉ do người phụ trách đưa mã lên từ `staging` khi bản chạy thử ổn. Quy ước đặt tên nhánh, viết commit và cách review xem trong `CONTRIBUTING.md`.
