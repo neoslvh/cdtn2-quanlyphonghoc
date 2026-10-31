@@ -1,0 +1,64 @@
+:root {
+  --vlu-red: #d72134;
+  --vlu-red-dark: #b81a2b;
+  --vlu-navy: #101129;
+  --vlu-navy-2: #1f2251;
+  --vlu-gray: #797a97;
+  --vlu-line: #c8cfef;
+  --vlu-soft: #f5f6fc;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; color: #171414; background: #fff; }
+
+/* Khung trang đăng nhập và đăng ký */
+.auth-page { min-height: 100vh; display: flex; flex-direction: column; background: var(--vlu-soft); }
+.auth-top { background: #fff; border-bottom: 1px solid var(--vlu-line); padding: 12px 32px; display: flex; align-items: center; justify-content: space-between; }
+.auth-top img { height: 44px; display: block; }
+.auth-top span { color: var(--vlu-gray); font-size: 14px; font-weight: 500; }
+.auth-body { flex: 1; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
+
+.auth-hero { position: relative; overflow: hidden; background: linear-gradient(160deg, var(--vlu-red) 0%, var(--vlu-red-dark) 100%); color: #fff; padding: 64px 56px; display: flex; flex-direction: column; justify-content: center; }
+.auth-hero::before { content: ''; position: absolute; right: -120px; bottom: -140px; width: 420px; height: 420px; border-radius: 50%; background: rgba(255, 255, 255, 0.08); }
+.auth-hero::after { content: ''; position: absolute; left: 0; top: 0; width: 100%; height: 6px; background: #febd25; }
+.auth-hero h1 { position: relative; margin: 0 0 16px; font-size: 36px; line-height: 1.2; font-weight: 800; color: #fff; }
+.auth-hero p { position: relative; margin: 0 0 32px; font-size: 16px; line-height: 1.6; color: rgba(255, 255, 255, 0.9); max-width: 440px; }
+.auth-hero ul { position: relative; margin: 0; padding: 0; list-style: none; display: grid; gap: 14px; }
+.auth-hero li { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; font-weight: 500; }
+.auth-hero li::before { content: ''; flex: none; width: 8px; height: 8px; margin-top: 8px; border-radius: 2px; background: #febd25; }
+
+.auth-main { display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
+.auth-card { width: 100%; max-width: 460px; background: #fff; border: 1px solid var(--vlu-line); border-radius: 16px; padding: 36px 36px 28px; box-shadow: 0 12px 32px rgba(16, 17, 41, 0.08); }
+.auth-card h2 { margin: 0 0 4px; font-size: 26px; font-weight: 800; color: var(--vlu-navy); }
+.auth-card .sub { margin: 0 0 24px; color: var(--vlu-gray); font-size: 14px; }
+.auth-card .switch { margin-top: 20px; text-align: center; color: var(--vlu-gray); font-size: 14px; }
+.auth-card .switch a { color: var(--vlu-red); font-weight: 700; }
+.auth-card .hint { margin: -8px 0 16px; color: var(--vlu-gray); font-size: 13px; }
+
+/* Khung trang sau đăng nhập */
+.app-top { background: #fff; border-bottom: 1px solid var(--vlu-line); padding: 10px 32px; display: flex; align-items: center; gap: 24px; position: sticky; top: 0; z-index: 10; }
+.app-top img { height: 40px; display: block; }
+.app-top nav { display: flex; gap: 4px; flex: 1; }
+.app-top nav a { padding: 8px 14px; border-radius: 8px; color: var(--vlu-navy); font-weight: 600; font-size: 14px; text-decoration: none; }
+.app-top nav a.active, .app-top nav a:hover { background: #fdecee; color: var(--vlu-red); }
+.app-user { display: flex; align-items: center; gap: 12px; font-size: 14px; }
+.app-user b { display: block; color: var(--vlu-navy); line-height: 1.2; }
+.app-user small { color: var(--vlu-gray); }
+.app-band { background: var(--vlu-red); color: #fff; padding: 28px 32px; }
+.app-band h1 { margin: 0; font-size: 26px; font-weight: 800; color: #fff; }
+.app-band p { margin: 4px 0 0; opacity: 0.9; }
+.app-content { max-width: 1120px; margin: 0 auto; padding: 32px 24px 64px; }
+.tile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.tile { background: #fff; border: 1px solid var(--vlu-line); border-radius: 12px; padding: 20px; }
+.tile h3 { margin: 0 0 6px; font-size: 16px; color: var(--vlu-navy); }
+.tile p { margin: 0; color: var(--vlu-gray); font-size: 14px; }
+
+@media (max-width: 900px) {
+  .auth-body { grid-template-columns: 1fr; }
+  .auth-hero { display: none; }
+  .auth-top { padding: 10px 16px; }
+  .auth-top span { display: none; }
+  .auth-card { padding: 28px 22px 22px; }
+  .app-top { padding: 10px 16px; gap: 12px; flex-wrap: wrap; }
+  .app-band, .app-content { padding-left: 16px; padding-right: 16px; }
+}
