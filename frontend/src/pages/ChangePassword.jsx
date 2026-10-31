@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Button, Form, Input, message } from 'antd';
-import { api } from '../api';
+import { api, setToken } from '../api';
 import { useAuth } from '../auth';
 
 const PASSWORD_RULES = [
@@ -23,6 +23,7 @@ export default function ChangePassword() {
     setError(null);
     try {
       const d = await api('/auth/change-password', { method: 'POST', body: { currentPassword, newPassword } });
+      setToken(d.token);
       setUser(d.user);
       message.success('Đã đổi mật khẩu');
       navigate('/', { replace: true });

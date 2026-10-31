@@ -40,6 +40,8 @@ model User {
   status             String       @db.VarChar(20)
   // Tài khoản do admin cấp hoặc đặt lại mật khẩu thì phải đổi mật khẩu ở lần đăng nhập đầu.
   mustChangePassword Boolean      @default(false) @map("must_change_password")
+  // Token cấp trước mốc này bị từ chối, để đổi hoặc đặt lại mật khẩu thu hồi các phiên cũ.
+  passwordChangedAt  DateTime?    @map("password_changed_at") @db.Timestamptz
   createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz
 
   @@map("user")

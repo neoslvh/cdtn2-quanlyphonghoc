@@ -238,3 +238,27 @@ test('JSON hỏng trả 400 chứ không phải 500', async () => {
   const res = await request(app).post('/api/auth/login').set('Content-Type', 'application/json').send('{khong-phai-json');
   expect(res.status).toBe(400);
 });
+
+describe('thu hồi phiên khi đổi mật khẩu', () => {
+  const jwt = require('jsonwebtoken');
+  const oldToken = (id) => jwt.sign({ sub: id, iat: Math.floor(Date.now() / 1000) - 60 }, 'khoa-bi-mat-chi-dung-khi-kiem-thu');
+
+  test('đổi mật khẩu: token cũ bị từ chối, token mới trong phản hồi dùng được', async () => {
+    const { app, addUser, login } = setup();
+    const u = await addUser();
+    const token = (await login()).body.token;
+    const res = await request(app).post('/api/auth/change-password').set('Authorization', `Bearer ${token}`).send({ currentPassword: 'Matkhau123', newPassword: 'Matkhau456' });
+    expect(res.status).toBe(200);
+    await request(app).get('/api/auth/me').set('Authorization', `Bearer ${oldToken(u.id)}`).expect(401);
+    await request(app).get('/api/auth/me').set('Authorization', `Bearer ${res.body.token}`).expect(200);
+  });
+
+  test('admin đặt lại mật khẩu: token cũ của người dùng bị từ chối', async () => {
+    const { app, addUser, login } = setup();
+    await addUser({ email: 'admin@vlu.edu.vn', role: 'ADMIN' });
+    const target = await addUser();
+    const adminToken = (await login('admin@vlu.edu.vn')).body.token;
+    await request(app).patch(`/api/users/${target.id}`).set('Authorization', `Bearer ${adminToken}`).send({ resetPassword: true }).expect(200);
+    await request(app).get('/api/auth/me').set('Authorization', `Bearer ${oldToken(target.id)}`).expect(401);
+  });
+});

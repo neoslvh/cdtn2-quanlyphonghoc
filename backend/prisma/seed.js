@@ -35,12 +35,21 @@ async function main() {
     const found = await prisma.organization.findFirst({ where: { name: o.name } });
     orgIds[o.name] = (found || (await prisma.organization.create({ data: o }))).id;
   }
-  const passwordHash = await bcrypt.hash(process.env.SEED_PASSWORD || 'Demo@12345', 10);
-  for (const a of accounts) {
-    const data = { organizationId: orgIds[a.org], fullName: a.fullName, role: a.role, status: 'ACTIVE' };
-    await prisma.user.upsert({ where: { email: a.email }, update: data, create: { ...data, email: a.email, passwordHash } });
+  // Môi trường production không có mật khẩu mặc định: thiếu SEED_PASSWORD thì không tạo tài khoản mẫu.
+  const seedPassword = process.env.SEED_PASSWORD || (process.env.NODE_ENV === 'production' ? null : 'Demo@12345');
+  let seeded = 0;
+  if (seedPassword) {
+    const passwordHash = await bcrypt.hash(seedPassword, 10);
+    for (const a of accounts) {
+      // Tài khoản đã có thì giữ nguyên, để vai trò và trạng thái admin đã chỉnh không bị ghi đè khi khởi động lại.
+      const create = { organizationId: orgIds[a.org], fullName: a.fullName, role: a.role, status: 'ACTIVE', email: a.email, passwordHash };
+      await prisma.user.upsert({ where: { email: a.email }, update: {}, create });
+      seeded++;
+    }
+  } else {
+    console.warn('NODE_ENV=production và chưa đặt SEED_PASSWORD: bỏ qua tài khoản mẫu.');
   }
-  console.log(`Đã nạp ${rooms.length} phòng, ${organizations.length} đơn vị và ${accounts.length} tài khoản mẫu`);
+  console.log(`Đã nạp ${rooms.length} phòng, ${organizations.length} đơn vị và ${seeded} tài khoản mẫu`);
 }
 
 main().finally(() => prisma.$disconnect());

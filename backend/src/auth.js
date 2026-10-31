@@ -65,6 +65,7 @@ const DUMMY_HASH = bcrypt.hashSync('khong-ton-tai-' + Math.random(), 10);
 function authRoutes({ db, jwtSecret, bcryptRounds = 10, limiter = createLoginLimiter(), allowRegistration = false }) {
   const router = Router();
   const hash = (p) => bcrypt.hash(p, bcryptRounds);
+  const signToken = (u) => jwt.sign({ sub: u.id, role: u.role, org: u.organizationId }, jwtSecret, { expiresIn: TOKEN_TTL });
 
   // allowMustChange: cho phép tài khoản đang bị bắt đổi mật khẩu đi qua (chỉ me, logout, change-password).
   const auth = (allowMustChange) => async (req, res, next) => {
@@ -82,6 +83,10 @@ function authRoutes({ db, jwtSecret, bcryptRounds = 10, limiter = createLoginLim
       if (!user || user.status !== 'ACTIVE') throw new ApiError(401, 'UNAUTHORIZED', 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.');
       if (user.mustChangePassword && !allowMustChange) {
         throw new ApiError(403, 'PASSWORD_CHANGE_REQUIRED', 'Bạn cần đổi mật khẩu trước khi sử dụng hệ thống.');
+      }
+      // iat tính bằng giây nên so theo giây; token cấp trước lần đổi mật khẩu gần nhất bị thu hồi.
+      if (user.passwordChangedAt && Math.floor(user.passwordChangedAt.getTime() / 1000) > payload.iat) {
+        throw new ApiError(401, 'UNAUTHORIZED', 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.');
       }
       req.user = user;
       next();
@@ -158,8 +163,7 @@ function authRoutes({ db, jwtSecret, bcryptRounds = 10, limiter = createLoginLim
       if (user.status === 'PENDING') throw new ApiError(403, 'ACCOUNT_PENDING', 'Tài khoản đang chờ quản trị viên duyệt.');
       if (user.status !== 'ACTIVE') throw new ApiError(403, 'ACCOUNT_LOCKED', 'Tài khoản đã bị khóa.');
       limiter.reset(key);
-      const token = jwt.sign({ sub: user.id, role: user.role, org: user.organizationId }, jwtSecret, { expiresIn: TOKEN_TTL });
-      res.json({ token, user: toUser(user) });
+      res.json({ token: signToken(user), user: toUser(user) });
     } catch (err) {
       next(err);
     }
@@ -180,8 +184,9 @@ function authRoutes({ db, jwtSecret, bcryptRounds = 10, limiter = createLoginLim
       if (newPassword === currentPassword) {
         throw new ApiError(400, 'VALIDATION_ERROR', 'Mật khẩu mới phải khác mật khẩu hiện tại.', [{ field: 'newPassword', message: 'Mật khẩu mới phải khác mật khẩu hiện tại.' }]);
       }
-      const user = await db.updateUser(req.user.id, { passwordHash: await hash(newPassword), mustChangePassword: false });
-      res.json({ user: toUser(user) });
+      const user = await db.updateUser(req.user.id, { passwordHash: await hash(newPassword), mustChangePassword: false, passwordChangedAt: new Date() });
+      // Các token cũ bị thu hồi nên cấp token mới cho phiên hiện tại.
+      res.json({ user: toUser(user), token: signToken(user) });
     } catch (err) {
       next(err);
     }
@@ -244,6 +249,7 @@ function authRoutes({ db, jwtSecret, bcryptRounds = 10, limiter = createLoginLim
         temporaryPassword = generateTempPassword();
         data.passwordHash = await hash(temporaryPassword);
         data.mustChangePassword = true;
+        data.passwordChangedAt = new Date();
       }
       if (!Object.keys(data).length) throw new ApiError(400, 'VALIDATION_ERROR', 'Không có trường nào để cập nhật.');
       if (req.params.id === req.user.id && (data.status || data.role)) {

@@ -77,4 +77,4 @@ cd backend
 npm test
 ```
 
-Bộ kiểm thử có 31 ca: hai ca cho `/api/hello`, còn lại cho đăng nhập, phiên làm việc, cấp tài khoản, đổi và đặt lại mật khẩu, duyệt tài khoản và đăng ký tự do. Tất cả dùng cơ sở dữ liệu giả lập nên chạy được mà không cần PostgreSQL.
+Bộ kiểm thử có 33 ca: hai ca cho `/api/hello`, còn lại cho đăng nhập, phiên làm việc, cấp tài khoản, đổi và đặt lại mật khẩu, duyệt tài khoản và đăng ký tự do. Tất cả dùng cơ sở dữ liệu giả lập nên chạy được mà không cần PostgreSQL.
