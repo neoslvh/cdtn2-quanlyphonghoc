@@ -202,6 +202,15 @@ function authRoutes({ db, jwtSecret, bcryptRounds = 10, limiter = createLoginLim
     }
   });
 
+  // Xuất danh sách tài khoản để đối soát.
+  router.get('/users/export', async (req, res, next) => {
+    try {
+      res.json({ items: await db.listUsers({}) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   router.get('/users', requireAuth, requireRole('ADMIN'), async (req, res, next) => {
     try {
       const { status } = req.query;
