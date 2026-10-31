@@ -1,0 +1,38 @@
+# Tài khoản cơ sở dữ liệu dưới đây chỉ dùng cho môi trường phát triển và demo.
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: qlphong
+      POSTGRES_USER: qlphong
+      POSTGRES_PASSWORD: qlphong_dev
+    ports:
+      # Chỉ mở cho máy này để pgAdmin kết nối, cổng 5433 tránh trùng PostgreSQL cài sẵn.
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qlphong -d qlphong"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://qlphong:qlphong_dev@db:5432/qlphong
+      PORT: 3000
+      JWT_SECRET: khoa-jwt-chi-dung-khi-phat-trien-va-demo
+      SEED_PASSWORD: Demo@12345
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+volumes:
+  db-data:
