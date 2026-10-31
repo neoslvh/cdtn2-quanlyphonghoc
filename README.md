@@ -83,4 +83,4 @@ Bộ kiểm thử có 35 ca: hai ca cho `/api/hello`, còn lại cho đăng nh�
 
 ## 5. Quy trình làm việc nhóm
 
-Mỗi công việc làm trên một nhánh riêng tạo từ `staging`, đặt tên theo gói việc, ví dụ `feat/danh-muc-phong-thiet-bi`, mỗi người giữ tối đa một nhánh đang làm, rồi mở pull request vào `staging`. Pull request phải qua kiểm tra tự động (kiểm thử backend, build frontend) và được người phụ trách duyệt trước khi gộp. Nhánh `main` chỉ do người phụ trách đưa mã lên từ `staging` khi bản chạy thử ổn. Quy ước đặt tên nhánh, viết commit và cách review xem trong `CONTRIBUTING.md`.
+Mỗi công việc làm trên một nhánh riêng tạo từ `staging`, đặt tên theo gói việc, ví dụ `feat/danh-muc-phong-thiet-bi`, mỗi người giữ tối đa một nhánh đang làm, rồi mở pull request vào `staging`. Pull request phải qua kiểm tra tự động (kiểm thử backend, build frontend) và được người phụ trách duyệt trước khi gộp. PR vào `staging` được Claude review tự động, đạt thì tự gộp, không đạt thì dừng kèm góp ý. Nhánh `main` chỉ do người phụ trách đưa mã lên từ `staging` khi bản chạy thử ổn. Quy ước đặt tên nhánh, viết commit và cách review xem trong `CONTRIBUTING.md`.

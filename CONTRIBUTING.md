@@ -53,6 +53,14 @@ Sau khi mở PR, hệ thống tự chạy hai kiểm tra: kiểm thử backend v
 
 Góp ý được xử lý bằng commit mới trên cùng nhánh, không mở PR khác. Khi mọi góp ý đã xong, người phụ trách gộp bằng **Squash and merge** để mỗi PR thành một commit trên `staging`, tiêu đề commit lấy từ tiêu đề PR. Gộp xong thì xóa nhánh nguồn.
 
+### 5.1. Claude review tự động
+
+Mỗi PR vào `staging` được Claude review tự động (workflow `.github/workflows/claude-review.yml`). Claude đọc diff theo `CLAUDE.md` và `CONTRIBUTING.md`, rồi để lại một bình luận trên PR. Nếu không có điểm nào chặn gộp và CI đạt, PR tự được gộp vào `staging` bằng Squash. Nếu có điểm cần sửa, PR dừng lại, bình luận nêu tệp và dòng, vấn đề, lý do và cách sửa. Thành viên sửa rồi đẩy commit mới lên cùng nhánh, Claude review lại và cập nhật chính bình luận đó.
+
+Điểm chặn gộp gồm lỗi logic, lỗ hổng bảo mật, sửa migration đã có, thiếu kiểm thử cho nhánh xử lý mới, làm hỏng build, và commit ghi công Claude hay Anthropic làm đồng tác giả. Các góp ý còn lại chỉ là gợi ý, không chặn gộp. Gắn nhãn `no-auto-merge` lên PR khi muốn Claude chỉ review mà không tự gộp. Claude không bao giờ gộp vào `main`, bước đó luôn do người phụ trách làm.
+
+Chủ kho cần thêm secret `ANTHROPIC_API_KEY` ở Settings, Secrets and variables, Actions. Chưa có secret thì workflow tự bỏ qua và PR vẫn review thủ công như bình thường.
+
 ## 6. Đưa mã từ staging lên main
 
 Khi bản trên `staging` đã chạy thử ổn và đủ cho một mốc (cuối sprint hoặc trước buổi báo cáo), người phụ trách mở PR từ `staging` vào `main` hoặc tự gộp. Lần này dùng **Create a merge commit**, không dùng Squash, để `staging` và `main` không bị lệch lịch sử. Sau khi gộp, không cần xóa `staging`.

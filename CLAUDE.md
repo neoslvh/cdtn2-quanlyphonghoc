@@ -12,4 +12,7 @@ Backend dùng Node.js, Express 5 và Prisma, kiểm thử bằng Jest và Supert
 
 ## 3. Điều cần kiểm khi review
 
+Workflow `claude-review.yml` dùng chính tệp này làm tiêu chí. Điểm "blocker" chặn gộp tự động gồm lỗi logic, lỗ hổng bảo mật, sửa migration cũ, thiếu kiểm thử cho nhánh mới, làm hỏng build, và ghi công Claude hay Anthropic trong commit. Mọi điểm khác chỉ là gợi ý. Mỗi finding nêu tệp và dòng, vấn đề, lý do và cách sửa.
+
+
 Kiểm tra dữ liệu đầu vào và phân quyền ở máy chủ chứ không chỉ ở giao diện, mật khẩu và khóa bí mật không nằm trong mã, migration mới thay vì sửa migration cũ, kiểm thử cho mỗi nhánh xử lý mới, và tài liệu cập nhật khi đổi hành vi. Nêu lỗi theo mức độ, chỉ rõ tệp và dòng, đề xuất cách sửa ngắn gọn.
