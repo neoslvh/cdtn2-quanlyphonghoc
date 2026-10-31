@@ -55,11 +55,19 @@ Góp ý được xử lý bằng commit mới trên cùng nhánh, không mở PR
 
 ### 5.1. Claude review tự động
 
-Mỗi PR vào `staging` được Claude review tự động (workflow `.github/workflows/claude-review.yml`). Claude đọc diff theo `CLAUDE.md` và `CONTRIBUTING.md`, rồi để lại một bình luận trên PR. Nếu không có điểm nào chặn gộp và CI đạt, PR tự được gộp vào `staging` bằng Squash. Nếu có điểm cần sửa, PR dừng lại, bình luận nêu tệp và dòng, vấn đề, lý do và cách sửa. Thành viên sửa rồi đẩy commit mới lên cùng nhánh, Claude review lại và cập nhật chính bình luận đó.
+Mỗi PR vào `staging` được Claude review tự động (workflow `.github/workflows/claude-review.yml`). Kết quả là một bình luận ngắn trên PR, kèm nhãn trạng thái ở danh sách PR.
 
-Điểm chặn gộp gồm lỗi logic, lỗ hổng bảo mật, sửa migration đã có, thiếu kiểm thử cho nhánh xử lý mới, làm hỏng build, và commit ghi công Claude hay Anthropic làm đồng tác giả. Các góp ý còn lại chỉ là gợi ý, không chặn gộp. Gắn nhãn `no-auto-merge` lên PR khi muốn Claude chỉ review mà không tự gộp. Claude không bao giờ gộp vào `main`, bước đó luôn do người phụ trách làm.
+| Trạng thái | Nhãn | Ý nghĩa | PR sẽ |
+|---|---|---|---|
+| BLOCKED | claude:blocked | Có lỗi thật: logic, bảo mật, sửa migration cũ, thiếu kiểm thử, hỏng build, ghi công Claude trong commit | Dừng lại, không gộp |
+| SUGGEST | claude:suggest | Code đúng nhưng có cách tốt hơn: thư viện hay hơn, tối ưu, nâng cao, dễ bảo trì hơn | Tự gộp, gợi ý không bắt buộc |
+| OK | claude:ok | Không có gì cần nói thêm | Tự gộp |
 
-Chủ kho cần thêm secret `ANTHROPIC_API_KEY` ở Settings, Secrets and variables, Actions. Chưa có secret thì workflow tự bỏ qua và PR vẫn review thủ công như bình thường.
+Mỗi lỗi hoặc gợi ý ghi tệp và dòng, vấn đề là gì, vì sao, và cách sửa. Khi BLOCKED, sửa rồi đẩy commit mới lên cùng nhánh, Claude review lại và cập nhật chính bình luận đó. Việc tự gộp chỉ xảy ra khi CI cũng xanh và dùng Squash vào `staging`. Claude không bao giờ gộp vào `main`.
+
+Muốn sửa gợi ý trước khi gộp, gắn nhãn `no-auto-merge` ngay khi mở PR. Claude vẫn review nhưng không gộp. Sửa xong thì gỡ nhãn, đóng rồi mở lại PR (hoặc đẩy commit mới), Claude review lại và tự gộp.
+
+Chủ kho cần thêm secret `ANTHROPIC_API_KEY` ở Settings, Secrets and variables, Actions, và tài khoản API cần còn số dư. Chưa có secret thì workflow tự bỏ qua và PR review thủ công như bình thường.
 
 ## 6. Đưa mã từ staging lên main
 
