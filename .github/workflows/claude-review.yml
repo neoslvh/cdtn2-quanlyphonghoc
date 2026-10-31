@@ -48,7 +48,6 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
-          show_full_output: true
           prompt: |
             Review pull request #${{ github.event.pull_request.number }} của kho ${{ github.repository }} (nhánh ${{ github.head_ref }} vào ${{ github.base_ref }}).
             Đọc CLAUDE.md và CONTRIBUTING.md trước. Xem diff bằng `gh pr diff ${{ github.event.pull_request.number }}`, đọc các tệp liên quan trong mã nguồn khi cần, và xem thông điệp commit bằng `git log origin/${{ github.base_ref }}..HEAD --format=%B`.
