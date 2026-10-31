@@ -1,9 +1,12 @@
 name: Claude review
 
-# Mỗi pull request vào staging được Claude review. Đạt thì tự gộp (squash) sau khi CI xanh,
-# không đạt thì dừng lại, ghi rõ chỗ lỗi, lý do và cách sửa lên PR.
+# Mỗi pull request vào staging được Claude review và gắn một trong ba trạng thái:
+#   BLOCKED  có lỗi thật, chặn gộp, kèm giải thích và hướng sửa.
+#   SUGGEST  không có lỗi, chỉ có gợi ý tối ưu hoặc nâng cao. Không chặn gộp.
+#   OK       không có gì cần nói thêm.
+# BLOCKED thì dừng lại. SUGGEST và OK thì tự gộp (squash) sau khi CI xanh.
+# Dán nhãn no-auto-merge lên PR để Claude chỉ review, không tự gộp (dùng khi muốn sửa gợi ý trước).
 # Cần secret ANTHROPIC_API_KEY (Settings > Secrets and variables > Actions). Thiếu secret thì job tự bỏ qua.
-# Dán nhãn no-auto-merge lên PR để Claude chỉ review, không tự gộp.
 on:
   pull_request:
     branches: [staging]
@@ -50,20 +53,25 @@ jobs:
           github_token: ${{ github.token }}
           prompt: |
             Review pull request #${{ github.event.pull_request.number }} của kho ${{ github.repository }} (nhánh ${{ github.head_ref }} vào ${{ github.base_ref }}).
-            Đọc CLAUDE.md và CONTRIBUTING.md trước. Xem diff bằng `gh pr diff ${{ github.event.pull_request.number }}`, đọc các tệp liên quan trong mã nguồn khi cần, và xem thông điệp commit bằng `git log origin/${{ github.base_ref }}..HEAD --format=%B`.
+            Đọc CLAUDE.md và CONTRIBUTING.md trước. Xem diff bằng `gh pr diff ${{ github.event.pull_request.number }}`, đọc các tệp liên quan khi cần, và xem thông điệp commit bằng `git log origin/${{ github.base_ref }}..HEAD --format=%B`.
 
-            Chỉ tính là "blocker" (chặn gộp) khi có một trong các lỗi sau: lỗi logic hoặc crash; lỗ hổng bảo mật (thiếu kiểm tra dữ liệu đầu vào, thiếu phân quyền ở máy chủ, lộ mật khẩu, khóa bí mật, tệp .env); sửa lại migration đã có thay vì thêm migration mới; thay đổi hành vi mà không có kiểm thử cho nhánh xử lý mới; làm hỏng build hoặc kiểm thử; commit hoặc mô tả PR có dòng Co-Authored-By hay "Generated with" ghi công cho Claude hoặc Anthropic.
-            Những điểm còn lại (đặt tên, cấu trúc, tài liệu, tối ưu, đề xuất cải thiện) là "suggestion", không chặn gộp.
-            Không bịa lỗi. Nếu không có blocker thì verdict là approve.
+            Mỗi finding thuộc đúng một trong hai loại.
 
-            Với mỗi finding, ghi rõ: tệp và dòng, vấn đề là gì, vì sao là vấn đề (giải thích để người mới hiểu), và cách sửa cụ thể (có đoạn mã mẫu nếu ngắn). Viết tiếng Việt có dấu, văn phong tự nhiên, không emoji. Không sửa mã, không đăng bình luận, chỉ trả về kết quả theo schema.
+            "blocker" (BLOCKED, chặn gộp) chỉ dành cho lỗi thật: lỗi logic hoặc crash; lỗ hổng bảo mật (thiếu kiểm tra dữ liệu đầu vào, thiếu phân quyền ở máy chủ, lộ mật khẩu, khóa bí mật, tệp .env); sửa lại migration đã có thay vì thêm migration mới; làm hỏng build hoặc kiểm thử; hành vi mới không có kiểm thử; commit hoặc mô tả PR có dòng Co-Authored-By hay "Generated with" ghi công Claude hoặc Anthropic.
+
+            "suggestion" (SUGGEST, không chặn gộp) dành cho code vẫn chạy đúng nhưng có thể tốt hơn: dùng thư viện hoặc tính năng có sẵn xịn hơn, tối ưu hiệu năng, gọn hơn, an toàn hơn ở mức nâng cao, dễ bảo trì hơn, thêm kiểm thử, cải thiện trải nghiệm. Không đưa những điều nhỏ nhặt về cách đặt tên hay định dạng.
+
+            Không bịa lỗi. Không có gì đáng nói thì trả về danh sách findings rỗng.
+
+            Văn phong: tiếng Việt có dấu, ngắn gọn, đơn giản đến mức người mới học cũng hiểu, không emoji, không mở đầu dài, không nhắc lại những gì đã đúng. Tối đa 3 blocker và 5 suggestion, chọn những điểm có giá trị nhất. Mỗi finding: problem tối đa 2 câu nói rõ lỗi hoặc ý tưởng là gì, why tối đa 2 câu nói vì sao quan trọng, fix nói cách làm ngắn gọn (nếu có mã mẫu thì không quá 6 dòng). summary tối đa 2 câu.
+            Không sửa mã, không đăng bình luận, chỉ trả về kết quả theo schema.
           claude_args: |
             --model claude-sonnet-5-5
             --max-turns 30
             --allowedTools "Read,Grep,Glob,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git log:*),Bash(git diff:*)"
-            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["approve","changes_requested"]},"summary":{"type":"string"},"findings":{"type":"array","items":{"type":"object","properties":{"severity":{"type":"string","enum":["blocker","suggestion"]},"file":{"type":"string"},"line":{"type":"integer"},"problem":{"type":"string"},"why":{"type":"string"},"fix":{"type":"string"}},"required":["severity","problem","why","fix"]}}},"required":["verdict","summary","findings"]}'
+            --json-schema '{"type":"object","properties":{"summary":{"type":"string"},"findings":{"type":"array","items":{"type":"object","properties":{"severity":{"type":"string","enum":["blocker","suggestion"]},"file":{"type":"string"},"line":{"type":"integer"},"problem":{"type":"string"},"why":{"type":"string"},"fix":{"type":"string"}},"required":["severity","problem","why","fix"]}}},"required":["summary","findings"]}'
 
-      - name: Quyết định và gộp
+      - name: Quyết định, gắn trạng thái và gộp
         if: steps.gate.outputs.ok == 'true' && steps.review.outputs.structured_output != ''
         env:
           RESULT: ${{ steps.review.outputs.structured_output }}
@@ -73,31 +81,49 @@ jobs:
         run: |
           set -u
           BLOCKERS=$(jq '[.findings[] | select(.severity=="blocker")] | length' <<<"$RESULT")
-          VERDICT=$(jq -r '.verdict' <<<"$RESULT")
-          OUTCOME=""
-          if [ "$VERDICT" != "approve" ] || [ "$BLOCKERS" -gt 0 ]; then
-            OUTCOME="**Chưa gộp.** Có điểm cần sửa trước khi gộp, xem bên dưới. Sửa xong chỉ cần đẩy commit mới, Claude sẽ review lại."
+          SUGGESTS=$(jq '[.findings[] | select(.severity=="suggestion")] | length' <<<"$RESULT")
+          if [ "$BLOCKERS" -gt 0 ]; then STATUS=BLOCKED
+          elif [ "$SUGGESTS" -gt 0 ]; then STATUS=SUGGEST
+          else STATUS=OK; fi
+
+          # Nhãn trạng thái để nhìn thấy ngay ở danh sách PR.
+          gh label create claude:blocked --color D73A4A --description "Claude review: có lỗi, chặn gộp" 2>/dev/null || true
+          gh label create claude:suggest --color FBCA04 --description "Claude review: có gợi ý, không chặn gộp" 2>/dev/null || true
+          gh label create claude:ok --color 0E8A16 --description "Claude review: đạt" 2>/dev/null || true
+          LOW=$(echo "$STATUS" | tr 'A-Z' 'a-z')
+          for L in blocked suggest ok; do
+            if [ "$L" = "$LOW" ]; then gh pr edit "$PR" --add-label "claude:$L" || true; else gh pr edit "$PR" --remove-label "claude:$L" 2>/dev/null || true; fi
+          done
+
+          HOLD=0
+          [[ ",$LABELS," == *",no-auto-merge,"* ]] && HOLD=1
+          if [ "$STATUS" = BLOCKED ]; then
+            OUTCOME="**Chặn gộp.** Sửa các lỗi bên dưới rồi đẩy commit mới, Claude sẽ review lại."
             echo "BLOCKED=1" >> "$GITHUB_ENV"
-          elif [[ ",$LABELS," == *",no-auto-merge,"* ]]; then
-            OUTCOME="Review đạt, nhưng PR có nhãn \`no-auto-merge\` nên không tự gộp. Người phụ trách gộp thủ công."
+          elif [ "$HOLD" = 1 ]; then
+            OUTCOME="**Chưa gộp** vì PR có nhãn \`no-auto-merge\`. Sửa gợi ý nếu muốn (hoặc bỏ qua), rồi gỡ nhãn và đóng mở lại PR hoặc đẩy commit mới để Claude review lại và tự gộp."
           else
             # Chờ hai kiểm tra của CI (workflow khác) trên đúng commit này.
-            STATE=pending
+            CI=pending
             for i in $(seq 1 60); do
               RUNS=$(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" --jq '[.check_runs[] | select(.name | startswith("Backend") or startswith("Frontend"))]')
               TOTAL=$(jq 'length' <<<"$RUNS")
-              if jq -e 'any(.[]; .status=="completed" and .conclusion!="success" and .conclusion!="skipped")' <<<"$RUNS" >/dev/null; then STATE=failed; break; fi
-              if [ "$TOTAL" -ge 2 ] && jq -e 'all(.[]; .status=="completed")' <<<"$RUNS" >/dev/null; then STATE=passed; break; fi
+              if jq -e 'any(.[]; .status=="completed" and .conclusion!="success" and .conclusion!="skipped")' <<<"$RUNS" >/dev/null; then CI=failed; break; fi
+              if [ "$TOTAL" -ge 2 ] && jq -e 'all(.[]; .status=="completed")' <<<"$RUNS" >/dev/null; then CI=passed; break; fi
               sleep 15
             done
-            if [ "$STATE" = passed ]; then
+            if [ "$CI" = passed ]; then
               if ERR=$(gh pr merge "$PR" --squash --delete-branch --subject "$TITLE (#$PR)" 2>&1); then
-                OUTCOME="**Đã tự gộp vào \`staging\`** (squash) vì review đạt và CI xanh."
+                if [ "$STATUS" = SUGGEST ]; then
+                  OUTCOME="**Đã tự gộp vào \`staging\`** (squash). Gợi ý bên dưới không bắt buộc, có thể làm ở PR sau."
+                else
+                  OUTCOME="**Đã tự gộp vào \`staging\`** (squash)."
+                fi
               else
-                OUTCOME="Review đạt và CI xanh nhưng chưa gộp được: \`$ERR\`. Người phụ trách gộp thủ công."
+                OUTCOME="Review đạt, CI xanh nhưng chưa gộp được: \`$ERR\`. Người phụ trách gộp thủ công."
                 echo "BLOCKED=1" >> "$GITHUB_ENV"
               fi
-            elif [ "$STATE" = failed ]; then
+            elif [ "$CI" = failed ]; then
               OUTCOME="Review đạt nhưng CI chưa đạt nên chưa gộp. Xem tab Checks của PR."
               echo "BLOCKED=1" >> "$GITHUB_ENV"
             else
@@ -105,9 +131,10 @@ jobs:
               echo "BLOCKED=1" >> "$GITHUB_ENV"
             fi
           fi
+
           {
             echo "<!-- claude-review -->"
-            echo "## Kết quả review của Claude"
+            echo "## Claude review: $STATUS"
             echo
             echo "$OUTCOME"
             echo
@@ -115,14 +142,14 @@ jobs:
             echo
             jq -r --arg repo "$REPO" --arg sha "$HEAD_SHA" '
               def where: if .file then "[`\(.file)\(if .line then ":\(.line)" else "" end)`](https://github.com/\($repo)/blob/\($sha)/\(.file)\(if .line then "#L\(.line)" else "" end))" else "Chung" end;
-              def block($sev; $title):
+              def block($sev; $title; $a; $b; $c):
                 ([.findings[] | select(.severity==$sev)]) as $f
                 | if ($f|length)==0 then empty else
                     "### \($title)\n",
-                    ($f | to_entries[] | "\(.key+1). \(.value | where)\n   - Vấn đề: \(.value.problem)\n   - Vì sao: \(.value.why)\n   - Cách sửa: \(.value.fix)\n")
+                    ($f | to_entries[] | "\(.key+1). \(.value | where)\n   - \($a): \(.value.problem)\n   - \($b): \(.value.why)\n   - \($c): \(.value.fix)\n")
                   end;
-              block("blocker"; "Cần sửa trước khi gộp"),
-              block("suggestion"; "Gợi ý, không chặn gộp")' <<<"$RESULT"
+              block("blocker"; "Lỗi cần sửa (chặn gộp)"; "Lỗi"; "Vì sao"; "Cách sửa"),
+              block("suggestion"; "Gợi ý (không chặn gộp)"; "Gợi ý"; "Lợi ích"; "Cách làm")' <<<"$RESULT"
           } > body.md
           gh pr comment "$PR" --body-file body.md --edit-last --create-if-none
 
