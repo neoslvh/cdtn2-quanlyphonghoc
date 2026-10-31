@@ -27,8 +27,9 @@ const toUser = (u) => ({
 
 const validFullName = (v) => typeof v === 'string' && v.trim().length >= 2 && v.trim().length <= 150;
 const validEmail = (v) => typeof v === 'string' && EMAIL_RE.test(v.trim()) && v.length <= 255;
-const validPassword = (v) => typeof v === 'string' && v.length >= 8 && v.length <= 72 && /[A-Za-z]/.test(v) && /\d/.test(v);
-const PASSWORD_MSG = 'Mật khẩu từ 8 đến 72 ký tự, gồm cả chữ và số.';
+// bcrypt chỉ đọc 72 byte đầu nên giới hạn theo byte, ký tự có dấu chiếm nhiều byte hơn.
+const validPassword = (v) => typeof v === 'string' && v.length >= 8 && Buffer.byteLength(v) <= 72 && /[A-Za-z]/.test(v) && /\d/.test(v);
+const PASSWORD_MSG = 'Mật khẩu từ 8 ký tự, tối đa 72 byte (ký tự có dấu tính nhiều byte), gồm cả chữ và số.';
 
 function fail(details) {
   if (details.length) throw new ApiError(400, 'VALIDATION_ERROR', 'Dữ liệu không hợp lệ.', details);
@@ -54,7 +55,11 @@ function createLoginLimiter({ max = 5, windowMs = 15 * 60 * 1000 } = {}) {
   const live = (key) => (fails.get(key) || []).filter((t) => Date.now() - t < windowMs);
   return {
     blocked: (key) => live(key).length >= max,
-    fail: (key) => fails.set(key, [...live(key), Date.now()]),
+    fail: (key) => {
+      // Dọn khóa đã hết hạn khi Map lớn, tránh phình bộ nhớ khi bị gửi nhiều email ngẫu nhiên.
+      if (fails.size > 1000) for (const k of fails.keys()) if (!live(k).length) fails.delete(k);
+      fails.set(key, [...live(key), Date.now()]);
+    },
     reset: (key) => fails.delete(key),
   };
 }
@@ -177,9 +182,14 @@ function authRoutes({ db, jwtSecret, bcryptRounds = 10, limiter = createLoginLim
   router.post('/auth/change-password', requireAuthAny, async (req, res, next) => {
     try {
       const { currentPassword, newPassword } = req.body || {};
+      // Cùng bộ giới hạn với đăng nhập, để token bị lộ không dùng để dò mật khẩu hiện tại.
+      const key = `pw:${req.user.id}`;
+      if (limiter.blocked(key)) throw new ApiError(429, 'TOO_MANY_ATTEMPTS', 'Nhập sai mật khẩu hiện tại quá nhiều lần, vui lòng thử lại sau 15 phút.');
       if (typeof currentPassword !== 'string' || !(await bcrypt.compare(currentPassword, req.user.passwordHash))) {
+        limiter.fail(key);
         throw new ApiError(400, 'VALIDATION_ERROR', 'Mật khẩu hiện tại không đúng.', [{ field: 'currentPassword', message: 'Mật khẩu hiện tại không đúng.' }]);
       }
+      limiter.reset(key);
       fail(validPassword(newPassword) ? [] : [{ field: 'newPassword', message: PASSWORD_MSG }]);
       if (newPassword === currentPassword) {
         throw new ApiError(400, 'VALIDATION_ERROR', 'Mật khẩu mới phải khác mật khẩu hiện tại.', [{ field: 'newPassword', message: 'Mật khẩu mới phải khác mật khẩu hiện tại.' }]);

@@ -262,3 +262,26 @@ describe('thu hồi phiên khi đổi mật khẩu', () => {
     await request(app).get('/api/auth/me').set('Authorization', `Bearer ${oldToken(target.id)}`).expect(401);
   });
 });
+
+describe('giới hạn thử mật khẩu hiện tại và độ dài mật khẩu', () => {
+  test('đổi mật khẩu: sai quá số lần cho phép thì bị khóa tạm, kể cả khi sau đó nhập đúng', async () => {
+    const { app, addUser, login } = setup(createLoginLimiter({ max: 2 }));
+    await addUser();
+    const token = (await login()).body.token;
+    const change = (currentPassword) => request(app).post('/api/auth/change-password').set('Authorization', `Bearer ${token}`).send({ currentPassword, newPassword: 'Matkhau456' });
+    expect((await change('sai-1')).status).toBe(400);
+    expect((await change('sai-2')).status).toBe(400);
+    const res = await change('Matkhau123');
+    expect(res.status).toBe(429);
+    expect(res.body.error.code).toBe('TOO_MANY_ATTEMPTS');
+  });
+
+  test('mật khẩu quá 72 byte bị từ chối dù ít hơn 72 ký tự', async () => {
+    const { app, addUser, login } = setup();
+    await addUser();
+    const token = (await login()).body.token;
+    const res = await request(app).post('/api/auth/change-password').set('Authorization', `Bearer ${token}`).send({ currentPassword: 'Matkhau123', newPassword: 'Aa1' + 'ậ'.repeat(24) });
+    expect(res.status).toBe(400);
+    expect(res.body.error.details[0].field).toBe('newPassword');
+  });
+});
