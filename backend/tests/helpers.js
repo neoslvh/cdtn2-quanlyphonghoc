@@ -183,10 +183,10 @@ function fakeDb() {
       return r;
     },
     // phòng
-    listRooms: async ({ campus, roomType, status, q, minCapacity, page, pageSize }) => {
+    listRooms: async ({ campus, roomType, status, q, minCapacity, buildingCode, page, pageSize }) => {
       const all = rooms
         .map(flat)
-        .filter((r) => (!campus || r.campus === campus) && (!roomType || r.roomType === roomType) && (!status || r.status === status) && (!minCapacity || r.capacity >= minCapacity))
+        .filter((r) => (!campus || r.campus === campus) && (!roomType || r.roomType === roomType) && (!status || r.status === status) && (!minCapacity || r.capacity >= minCapacity) && (!buildingCode || r.buildingCode === buildingCode))
         .filter((r) => !q || `${r.code} ${r.name}`.toLowerCase().includes(q.toLowerCase()))
         .sort((a, b) => a.code.localeCompare(b.code));
       return { items: page ? all.slice((page - 1) * pageSize, page * pageSize) : all, total: all.length };

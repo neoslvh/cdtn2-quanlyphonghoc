@@ -8,6 +8,7 @@ const options = (map) => Object.entries(map).map(([value, label]) => ({ value, l
 // WF-08: quản lý phòng (FR-03). Không có nút xóa: phòng đã từng có lịch thì chỉ chuyển sang Ngừng sử dụng hoặc Bảo trì.
 export default function RoomManage() {
   const [filter, setFilter] = useState({});
+  const [buildings, setBuildings] = useState([]);
   const [page, setPage] = useState(1);
   const [data, setData] = useState({ items: [], total: 0, pageSize: 10 });
   const [loading, setLoading] = useState(true);
@@ -26,6 +27,10 @@ export default function RoomManage() {
       .finally(() => setLoading(false));
   }, [filter, page]);
   useEffect(load, [load]);
+  // Danh sách tòa cho ô lọc lấy từ chính danh sách phòng.
+  useEffect(() => {
+    api('/rooms').then((d) => setBuildings([...new Set(d.items.map((r) => r.building))].sort()));
+  }, [data.total]);
 
   const setF = (key) => (value) => { setPage(1); setFilter((f) => ({ ...f, [key]: value })); };
 
@@ -63,6 +68,8 @@ export default function RoomManage() {
           <div className="form-row">
             <Input.Search size="large" allowClear placeholder="Tìm theo mã hoặc tên phòng" onSearch={setF('q')} />
             <Select size="large" allowClear placeholder="Mọi cơ sở" onChange={setF('campus')} options={CAMPUSES.map((c) => ({ value: c, label: c }))} />
+            <Select size="large" allowClear placeholder="Mọi tòa" onChange={(v) => setF('building')(v ? v.replace('Tòa ', '') : v)} options={buildings.map((b) => ({ value: b, label: b }))} />
+            <InputNumber size="large" min={1} placeholder="Sức chứa từ" style={{ minWidth: 130 }} onChange={(v) => setF('minCapacity')(v || undefined)} />
             <Select size="large" allowClear placeholder="Mọi loại phòng" onChange={setF('roomType')} options={options(ROOM_TYPE)} />
             <Select size="large" allowClear placeholder="Mọi trạng thái" onChange={setF('status')} options={options(ROOM_STATUS)} />
             <Button type="primary" size="large" style={{ flex: '0 0 auto' }} onClick={() => open({})}>Thêm phòng</Button>

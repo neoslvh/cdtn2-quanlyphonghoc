@@ -58,6 +58,8 @@ function listRooms(q) {
   const items = rooms
     .filter((r) => !q.get('campus') || r.campus === q.get('campus'))
     .filter((r) => !q.get('roomType') || r.roomType === q.get('roomType'))
+    .filter((r) => !q.get('building') || r.code[0].toUpperCase() === q.get('building').toUpperCase())
+    .filter((r) => !q.get('minCapacity') || r.capacity >= Number(q.get('minCapacity')))
     .filter((r) => !q.get('status') || r.status === q.get('status'))
     .filter((r) => !kw || `${r.code} ${r.name}`.toLowerCase().includes(kw))
     .map((r) => ({ ...r, building: `Tòa ${r.code[0]}` }));

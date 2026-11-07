@@ -92,6 +92,20 @@ describe('danh sách và chi tiết', () => {
     expect((await request(app).get('/api/rooms?roomType=VILLA').set(requester)).status).toBe(400);
   });
 
+  test('lọc theo tòa nhà và sức chứa tối thiểu, tham số sai trả 400', async () => {
+    const { app, staff, requester } = setup();
+    await seed(app, staff);
+    await request(app).post('/api/rooms').set(staff).send({ ...room, code: 'B.01.01', name: 'Phòng B.01.01', capacity: 30 });
+    const codes = async (qs) => (await request(app).get(`/api/rooms?${qs}`).set(requester)).body.items.map((r) => r.code);
+    expect(await codes('building=a')).toEqual(['A.10.01', 'A.10.02']);
+    expect(await codes('building=B')).toEqual(['B.01.01']);
+    expect(await codes('minCapacity=100')).toEqual(['A.10.02']);
+    expect(await codes('building=A&minCapacity=100')).toEqual(['A.10.02']);
+    expect((await request(app).get('/api/rooms?minCapacity=abc').set(requester)).body.error.details[0].field).toBe('minCapacity');
+    expect((await request(app).get('/api/rooms?building=A&building=B').set(requester)).body.error.details[0].field).toBe('building');
+    expect((await request(app).get('/api/rooms?campus=a&campus=b').set(requester)).body.error.details[0].field).toBe('campus');
+  });
+
   test('chi tiết phòng, id không tồn tại hoặc sai định dạng thì 404', async () => {
     const { app, staff, requester } = setup();
     const created = (await request(app).post('/api/rooms').set(staff).send(room)).body.room;
