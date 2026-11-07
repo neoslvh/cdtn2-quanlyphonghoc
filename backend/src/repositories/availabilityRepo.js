@@ -15,8 +15,11 @@ function createAvailabilityRepo(prisma) {
     },
 
     /** Nguồn xung đột đầu tiên của một phòng trong khoảng thời gian: buổi học trước, rồi lượt đặt. Trả null nếu trống. */
-    findRoomConflict: async (roomId, from, to, { excludeRequestId } = {}) => {
-      const session = await prisma.classSchedule.findFirst({ where: { roomId, status: 'ACTIVE', ...overlap(from, to) }, orderBy: { startAt: 'asc' } });
+    findRoomConflict: async (roomId, from, to, { excludeRequestId, excludeSessionId } = {}) => {
+      const session = await prisma.classSchedule.findFirst({
+        where: { roomId, status: 'ACTIVE', ...overlap(from, to), ...(excludeSessionId ? { id: { not: excludeSessionId } } : {}) },
+        orderBy: { startAt: 'asc' },
+      });
       if (session) return { source: 'CLASS_SCHEDULE', courseCode: session.courseCode, classCode: session.classCode };
       const booking = await prisma.roomBooking.findFirst({
         where: { roomId, status: 'ACTIVE', ...overlap(from, to), ...(excludeRequestId ? { requestId: { not: excludeRequestId } } : {}) },
