@@ -1,0 +1,32 @@
+name: Jira sync
+
+# Tự cập nhật trạng thái issue Jira theo hoạt động trên GitHub (xem .github/scripts/jira_sync.py).
+# Cần các secret: JIRA_BASE_URL (ví dụ https://cdtn2.atlassian.net), JIRA_USER_EMAIL, JIRA_API_TOKEN.
+# Thiếu secret thì tự bỏ qua. PR tự gộp bởi workflow Claude review được xử lý trong chính workflow đó.
+on:
+  pull_request:
+    branches: [staging, main]
+    types: [opened, reopened, ready_for_review, converted_to_draft, closed]
+  push:
+    branches: [Hung, Huy, Khoa]
+
+permissions:
+  contents: read
+
+jobs:
+  jira:
+    name: Cập nhật trạng thái Jira
+    runs-on: ubuntu-latest
+    env:
+      JIRA_URL: ${{ secrets.JIRA_BASE_URL }}
+      JIRA_USER: ${{ secrets.JIRA_USER_EMAIL }}
+      JIRA_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Đồng bộ
+        run: |
+          if [ -z "$JIRA_URL" ] || [ -z "$JIRA_USER" ] || [ -z "$JIRA_TOKEN" ]; then
+            echo "::notice::Chưa có secret Jira, bỏ qua."
+            exit 0
+          fi
+          python3 .github/scripts/jira_sync.py

@@ -78,6 +78,9 @@ jobs:
           LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
           REPO: ${{ github.repository }}
           TITLE: ${{ github.event.pull_request.title }}
+          JIRA_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
         run: |
           set -u
           BLOCKERS=$(jq '[.findings[] | select(.severity=="blocker")] | length' <<<"$RESULT")
@@ -114,6 +117,8 @@ jobs:
             done
             if [ "$CI" = passed ]; then
               if ERR=$(gh pr merge "$PR" --merge --subject "Merge: $TITLE (#$PR)" 2>&1); then
+                # Gộp bằng GITHUB_TOKEN không kích hoạt workflow Jira sync, nên cập nhật Jira ngay tại đây.
+                if [ -n "$JIRA_URL" ] && [ -n "$JIRA_USER" ] && [ -n "$JIRA_TOKEN" ]; then FORCE_ACTION=merged python3 .github/scripts/jira_sync.py || true; fi
                 if [ "$STATUS" = SUGGEST ]; then
                   OUTCOME="**Đã tự gộp vào \`staging\`** (merge commit, nhánh của bạn được giữ lại). Gợi ý bên dưới không bắt buộc, có thể làm ở PR sau."
                 else
