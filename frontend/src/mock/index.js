@@ -90,7 +90,8 @@ function createRoom(b) {
 function updateRoom(id, b) {
   const room = rooms.find((r) => r.id === id);
   if (!room) throw new ApiError(404, 'NOT_FOUND', 'Không tìm thấy phòng.');
-  Object.assign(room, validateRoom(b, room));
+  if (b.code !== undefined && String(b.code).trim() !== room.code) throw bad([{ field: 'code', message: 'Không đổi mã phòng đã có.' }]);
+  Object.assign(room, validateRoom({ ...b, code: room.code }, room));
   return { room };
 }
 

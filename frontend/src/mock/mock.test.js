@@ -154,6 +154,14 @@ describe('quản lý phòng', () => {
     expect(kw).toMatchObject({ total: 2, pageSize: 1 });
   });
 
+  test('sửa phòng được đổi tên và trạng thái nhưng không được đổi mã phòng', async () => {
+    const { room: created } = await call('POST', '/rooms', room);
+    const { room: edited } = await call('PATCH', `/rooms/${created.id}`, { ...room, name: 'Tên mới', capacity: 60 });
+    expect(edited).toMatchObject({ code: 'E.01.01', name: 'Tên mới', capacity: 60 });
+    const err = await fails(call('PATCH', `/rooms/${created.id}`, { ...room, code: 'E.09.09' }), 400, 'VALIDATION_ERROR');
+    expect(err.details[0].field).toBe('code');
+  });
+
   test('sửa phòng không tồn tại báo NOT_FOUND', async () => {
     await fails(call('PATCH', '/rooms/khong-co', room), 404, 'NOT_FOUND');
   });
