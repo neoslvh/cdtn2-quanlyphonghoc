@@ -57,9 +57,18 @@ function createRoomService(repo) {
       if (building && building.campus && building.campus !== campus) {
         throw validation([{ field: 'campus', message: `Tòa ${building.code} thuộc ${building.campus}.` }]);
       }
+      if (!building) {
+        try {
+          building = await repo.createBuilding({ code: bCode, name: `Tòa ${bCode}`, campus });
+        } catch (err) {
+          // Hai yêu cầu cùng tạo tòa mới: lấy tòa của yêu cầu thắng cuộc rồi đi tiếp, không phải lỗi mã phòng trùng.
+          if (!isUniqueViolation(err)) throw err;
+          building = await repo.findBuildingByCode(bCode);
+          if (building.campus && building.campus !== campus) throw validation([{ field: 'campus', message: `Tòa ${building.code} thuộc ${building.campus}.` }]);
+        }
+      }
+      if (!building.campus) building = await repo.setBuildingCampus(building.id, campus);
       try {
-        building = building || (await repo.createBuilding({ code: bCode, name: `Tòa ${bCode}`, campus }));
-        if (!building.campus) building = await repo.setBuildingCampus(building.id, campus);
         return toRoom(await repo.createRoom({ ...data, buildingId: building.id }));
       } catch (err) {
         // Hai yêu cầu cùng lúc có thể cùng qua bước kiểm tra, ràng buộc unique của cơ sở dữ liệu là chốt chặn cuối.

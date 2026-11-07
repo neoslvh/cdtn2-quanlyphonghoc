@@ -27,10 +27,21 @@ describe('RoomService.create', () => {
 
   test('hai yêu cầu cùng lúc cùng qua bước kiểm tra, ràng buộc unique báo P2002 thì trả lỗi mã trùng chứ không phải 500', async () => {
     const repo = fakeDb();
-    repo.createRoom = async () => Object.assign(new Error('unique'), { code: 'P2002' });
     repo.createRoom = async () => { throw Object.assign(new Error('unique'), { code: 'P2002' }); };
     const err = await fails(createRoomService(repo).create(body));
     expect([err.status, err.details[0].field]).toEqual([400, 'code']);
+  });
+
+  test('hai yêu cầu cùng tạo tòa mới: lỗi trùng của tòa không bị báo thành mã phòng trùng, phòng vẫn được tạo', async () => {
+    const repo = fakeDb();
+    const realCreate = repo.createBuilding;
+    // Yêu cầu khác vừa tạo xong tòa E, nên lần tạo của ta vướng ràng buộc unique.
+    repo.createBuilding = async (data) => {
+      await realCreate(data);
+      throw Object.assign(new Error('unique'), { code: 'P2002' });
+    };
+    const room = await createRoomService(repo).create({ ...body, code: 'E.01.01', campus: 'Cơ sở 3' });
+    expect(room).toMatchObject({ code: 'E.01.01', building: 'Tòa E', campus: 'Cơ sở 3' });
   });
 
   test('lỗi cơ sở dữ liệu khác vẫn nổi lên, không bị đổi thành lỗi mã trùng', async () => {
