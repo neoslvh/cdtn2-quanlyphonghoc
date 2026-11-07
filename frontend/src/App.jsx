@@ -2,13 +2,14 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { Spin } from 'antd';
 import { useAuth } from './auth';
 import AdminUsers from './pages/AdminUsers';
-import { canManageSchedule } from './constants';
+import { canManageRooms, canManageSchedule } from './constants';
 import ChangePassword from './pages/ChangePassword';
 import ClassSchedule from './pages/ClassSchedule';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import RequestForm from './pages/RequestForm';
+import RoomManage from './pages/RoomManage';
 import RoomSearch from './pages/RoomSearch';
 import Shell from './pages/Shell';
 
@@ -34,6 +35,7 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="change-password" element={<ChangePassword />} />
           <Route path="rooms/search" element={<RoomSearch />} />
+          <Route path="rooms" element={<Protected allow={canManageRooms}><RoomManage /></Protected>} />
           <Route path="requests/new" element={<Protected roles={['REQUESTER']}><RequestForm /></Protected>} />
           <Route path="class-schedule" element={<Protected allow={canManageSchedule}><ClassSchedule /></Protected>} />
           <Route path="admin/users" element={<Protected roles={['ADMIN']}><AdminUsers /></Protected>} />

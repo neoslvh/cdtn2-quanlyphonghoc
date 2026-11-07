@@ -1,19 +1,20 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth';
-import { canManageSchedule } from '../constants';
+import { canManageRooms, canManageSchedule } from '../constants';
 import { ROLE_LABEL } from './Shell';
 
 // Lối tắt theo vai trò. Mục có `to` đã làm xong, mục còn lại hiện kèm sprint dự kiến.
 const TILES = {
   REQUESTER: [['Tra cứu phòng trống', 'Tìm phòng còn trống theo khung giờ và thiết bị', '/rooms/search'], ['Tạo yêu cầu đăng ký', 'Lập phiếu đề xuất sử dụng phòng', '/requests/new'], ['Theo dõi yêu cầu', 'Sprint 3']],
   APPROVER: [['Tra cứu phòng trống', 'Xem phòng còn trống', '/rooms/search'], ['Duyệt yêu cầu', 'Sprint 3']],
-  FACILITY_STAFF: [['Tra cứu phòng trống', 'Xem phòng còn trống', '/rooms/search'], ['Quản lý phòng', 'Sprint 2'], ['Quản lý thiết bị', 'Sprint 3']],
-  ADMIN: [['Tra cứu phòng trống', 'Xem phòng còn trống', '/rooms/search'], ['Quản lý phòng', 'Sprint 2'], ['Quy tắc duyệt', 'Sprint 5']],
+  FACILITY_STAFF: [['Tra cứu phòng trống', 'Xem phòng còn trống', '/rooms/search'], ['Quản lý thiết bị', 'Sprint 3']],
+  ADMIN: [['Tra cứu phòng trống', 'Xem phòng còn trống', '/rooms/search'], ['Quy tắc duyệt', 'Sprint 5']],
 };
 
 export default function Home() {
   const { user } = useAuth();
   const tiles = [...(TILES[user.role] || [])];
+  if (canManageRooms(user)) tiles.push(['Quản lý phòng', 'Thêm, sửa phòng và đổi trạng thái', '/rooms']);
   if (canManageSchedule(user)) tiles.push(['Lịch học chính khóa', 'Nhập thời khóa biểu và quản lý buổi học', '/class-schedule']);
   return (
     <>

@@ -2,7 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { Button } from 'antd';
 import { USE_MOCK } from '../api';
 import { useAuth } from '../auth';
-import { canManageSchedule } from '../constants';
+import { canManageRooms, canManageSchedule } from '../constants';
 
 export const ROLE_LABEL = {
   REQUESTER: 'Người đăng ký',
@@ -22,6 +22,7 @@ export default function Shell() {
           <NavLink to="/" end>Trang chủ</NavLink>
           <NavLink to="/rooms/search">Tra cứu phòng</NavLink>
           {user.role === 'REQUESTER' && <NavLink to="/requests/new">Tạo yêu cầu</NavLink>}
+          {canManageRooms(user) && <NavLink to="/rooms" end>Quản lý phòng</NavLink>}
           {canManageSchedule(user) && <NavLink to="/class-schedule">Lịch học chính khóa</NavLink>}
           {user.role === 'ADMIN' && <NavLink to="/admin/users">Tài khoản</NavLink>}
         </nav>
