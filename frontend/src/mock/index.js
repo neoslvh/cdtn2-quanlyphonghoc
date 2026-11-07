@@ -1,4 +1,5 @@
 import dayjs from 'dayjs';
+import { CAMPUSES } from '../constants';
 import { ApiError } from '../errors';
 import { classSessions, expandSessions, importBatches, nextId, periodSlots, requests, rooms, SEMESTER } from './db';
 
@@ -68,11 +69,13 @@ function validateRoom(b, current) {
   const details = [];
   const code = String(b.code || '').trim();
   if (!code) details.push({ field: 'code', message: 'Nhập mã phòng.' });
+  else if (code.length > 20) details.push({ field: 'code', message: 'Mã phòng tối đa 20 ký tự.' });
   else if (rooms.some((r) => r.code.toLowerCase() === code.toLowerCase() && r !== current)) details.push({ field: 'code', message: 'Mã phòng đã tồn tại.' });
   if (!String(b.name || '').trim()) details.push({ field: 'name', message: 'Nhập tên phòng.' });
-  if (!b.campus) details.push({ field: 'campus', message: 'Chọn cơ sở.' });
+  else if (String(b.name).trim().length > 100) details.push({ field: 'name', message: 'Tên phòng tối đa 100 ký tự.' });
+  if (!CAMPUSES.includes(b.campus)) details.push({ field: 'campus', message: 'Chọn cơ sở.' });
   if (!ROOM_TYPES.includes(b.roomType)) details.push({ field: 'roomType', message: 'Chọn loại phòng.' });
-  if (!Number.isInteger(b.capacity) || b.capacity < 1) details.push({ field: 'capacity', message: 'Sức chứa phải là số nguyên dương.' });
+  if (!Number.isInteger(b.capacity) || b.capacity < 1 || b.capacity > 2000) details.push({ field: 'capacity', message: 'Sức chứa là số nguyên từ 1 đến 2000.' });
   if (!ROOM_STATUSES.includes(b.status)) details.push({ field: 'status', message: 'Chọn trạng thái.' });
   if (details.length) throw bad(details);
   return { code, name: String(b.name).trim(), campus: b.campus, roomType: b.roomType, capacity: b.capacity, status: b.status };
