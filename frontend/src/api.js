@@ -1,5 +1,4 @@
 import { ApiError } from './errors';
-import { mockCall, mockHandles } from './mock';
 
 export { ApiError };
 
@@ -14,7 +13,11 @@ export const setToken = (t) => (t ? localStorage.setItem(TOKEN_KEY, t) : localSt
 export const USE_MOCK = import.meta.env.VITE_API_MOCK === 'true';
 
 export async function api(path, { method = 'GET', body } = {}) {
-  if (USE_MOCK && mockHandles(method, path)) return mockCall(method, path, body);
+  if (USE_MOCK) {
+    // Nạp theo yêu cầu để bản build thật không mang theo mã dữ liệu giả.
+    const mock = await import('./mock');
+    if (mock.mockHandles(method, path)) return mock.mockCall(method, path, body);
+  }
   const headers = {};
   const isForm = body instanceof FormData;
   if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';

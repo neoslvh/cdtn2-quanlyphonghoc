@@ -83,7 +83,9 @@ def move(issue, target, allow_back, note):
     if not pick:
         print(f'::warning::{issue}: không có bước chuyển sang {target}')
         return
-    call('POST', f'/rest/api/3/issue/{issue}/transitions', {'transition': {'id': pick['id']}})
+    if call('POST', f'/rest/api/3/issue/{issue}/transitions', {'transition': {'id': pick['id']}}) is None:
+        print(f'::warning::{issue}: Jira không nhận lệnh chuyển sang {target}, không ghi bình luận')
+        return
     text = f"{note} Trạng thái: {cur} -> {pick['to']['name']}."
     adf = {'type': 'doc', 'version': 1, 'content': [{'type': 'paragraph', 'content': [{'type': 'text', 'text': text}]}]}
     call('POST', f'/rest/api/3/issue/{issue}/comment', {'body': adf})

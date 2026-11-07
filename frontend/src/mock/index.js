@@ -274,6 +274,7 @@ const routes = [
   route('POST', '/class-schedule/([^/]+)/cancel', (m) => {
     const s = classSessions.find((x) => x.id === m[1]);
     if (!s) throw new ApiError(404, 'NOT_FOUND', 'Không tìm thấy buổi học.');
+    if (s.status !== 'ACTIVE') throw new ApiError(409, 'INVALID_STATE', 'Chỉ hủy được buổi học đang hiệu lực.');
     s.status = 'CANCELLED';
     return { session: s };
   }),
