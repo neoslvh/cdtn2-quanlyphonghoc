@@ -123,3 +123,33 @@ describe('nhập thời khóa biểu', () => {
     await fails(call('POST', `/class-schedule/${s.id}/cancel`), 409, 'INVALID_STATE');
   });
 });
+
+describe('quản lý phòng', () => {
+  const room = { code: 'E.01.01', name: 'Phòng E.01.01', campus: 'Cơ sở 3', roomType: 'CLASSROOM', capacity: 50, status: 'AVAILABLE' };
+
+  test('thêm phòng mới rồi sửa trạng thái, phòng bảo trì không còn trong kết quả tra cứu', async () => {
+    const { room: created } = await call('POST', '/rooms', room);
+    expect(created).toMatchObject({ code: 'E.01.01', equipment: {} });
+    const start = nextWeekday(20);
+    const q = new URLSearchParams({ from: start.format(), to: start.add(1, 'hour').format(), capacity: 10 });
+    expect((await call('GET', `/rooms/available?${q}`)).items.map((r) => r.code)).toContain('E.01.01');
+    await call('PATCH', `/rooms/${created.id}`, { ...room, status: 'MAINTENANCE' });
+    expect((await call('GET', `/rooms/available?${q}`)).items.map((r) => r.code)).not.toContain('E.01.01');
+  });
+
+  test('mã phòng trùng hoặc dữ liệu thiếu thì báo VALIDATION_ERROR theo từng trường', async () => {
+    const err = await fails(call('POST', '/rooms', { ...room, code: 'a.10.01', capacity: 0, name: '' }), 400, 'VALIDATION_ERROR');
+    expect(err.details.map((d) => d.field).sort()).toEqual(['capacity', 'code', 'name']);
+  });
+
+  test('lọc theo trạng thái và từ khóa, có phân trang', async () => {
+    const maint = await call('GET', '/rooms?status=MAINTENANCE&page=1&pageSize=5');
+    expect(maint.items.map((r) => r.code)).toEqual(['B.06.02']);
+    const kw = await call('GET', '/rooms?q=hội trường&page=1&pageSize=1');
+    expect(kw).toMatchObject({ total: 2, pageSize: 1 });
+  });
+
+  test('sửa phòng không tồn tại báo NOT_FOUND', async () => {
+    await fails(call('PATCH', '/rooms/khong-co', room), 404, 'NOT_FOUND');
+  });
+});
