@@ -15,9 +15,9 @@ function flatRoom(r) {
 function createRoomRepo(prisma) {
   return {
     /** Danh sách phòng theo bộ lọc. Có page và pageSize thì cắt trang ngay trong cơ sở dữ liệu. Trả { items, total }. */
-    listRooms: async ({ campus, roomType, status, q, minCapacity, page, pageSize }) => {
+    listRooms: async ({ campus, roomType, status, q, minCapacity, buildingCode, page, pageSize }) => {
       const where = {
-        ...(campus ? { building: { campus } } : {}),
+        ...(campus || buildingCode ? { building: { ...(campus ? { campus } : {}), ...(buildingCode ? { code: buildingCode } : {}) } } : {}),
         ...(roomType ? { roomType } : {}),
         ...(status ? { status } : {}),
         ...(minCapacity ? { capacity: { gte: minCapacity } } : {}),

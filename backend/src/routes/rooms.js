@@ -9,8 +9,8 @@ function roomRoutes({ service, guards }) {
 
   // Danh sách phòng. Không truyền page thì trả toàn bộ để dùng cho ô chọn phòng.
   router.get('/rooms', requireAuth, async (req, res) => {
-    const { campus, roomType, status, q } = req.query;
-    const filters = { campus, roomType, status, q: typeof q === 'string' ? q.trim() : '' };
+    const { campus, roomType, status, q, building, minCapacity } = req.query;
+    const filters = { campus, roomType, status, building, minCapacity, q: typeof q === 'string' ? q.trim() : '' };
     if (!req.query.page) {
       const { items, total } = await service.list(filters, null);
       return res.json({ items, page: 1, pageSize: items.length, total });

@@ -29,7 +29,11 @@ function checkRoom(b) {
 }
 
 /** Kiểm tra các tham số lọc danh sách phòng. */
-function checkRoomFilter({ roomType, status }) {
+function checkRoomFilter({ campus, roomType, status, building, minCapacity }) {
+  if (campus !== undefined && (typeof campus !== 'string' || campus.length > 120)) throw validation([{ field: 'campus', message: 'Cơ sở không hợp lệ.' }]);
+  // Query có thể là mảng khi gửi trùng tham số, chỉ nhận chuỗi.
+  if (building !== undefined && (typeof building !== 'string' || building.length > 30)) throw validation([{ field: 'building', message: 'Mã tòa không hợp lệ.' }]);
+  if (minCapacity !== undefined && (!/^\d{1,4}$/.test(String(minCapacity)) || Number(minCapacity) < 1)) throw validation([{ field: 'minCapacity', message: 'Sức chứa tối thiểu là số nguyên dương.' }]);
   if (roomType && !ROOM_TYPES.includes(roomType)) throw validation([{ field: 'roomType', message: 'Loại phòng không hợp lệ.' }]);
   if (status && !ROOM_STATUSES.includes(status)) throw validation([{ field: 'status', message: 'Trạng thái không hợp lệ.' }]);
 }

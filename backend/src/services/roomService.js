@@ -34,7 +34,8 @@ function createRoomService(repo) {
      */
     async list(filters, paging) {
       checkRoomFilter(filters);
-      const { items, total } = await repo.listRooms({ ...filters, ...(paging || {}) });
+      const { building, minCapacity, ...rest } = filters;
+      const { items, total } = await repo.listRooms({ ...rest, buildingCode: building ? building.toUpperCase() : undefined, minCapacity: minCapacity ? Number(minCapacity) : undefined, ...(paging || {}) });
       return { items: items.map(toRoom), total };
     },
 
