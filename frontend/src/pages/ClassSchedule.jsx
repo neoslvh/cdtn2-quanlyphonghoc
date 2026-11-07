@@ -86,7 +86,7 @@ export default function ClassSchedule() {
           <div className="form-row">
             <Form layout="vertical" style={{ display: 'contents' }}>
               <Form.Item label="Học kỳ" className="grow2">
-                <Input size="large" value={semester} onChange={(e) => setSemester(e.target.value)} />
+                <Input size="large" aria-label="Học kỳ" value={semester} onChange={(e) => setSemester(e.target.value)} />
               </Form.Item>
               <Form.Item label="Chế độ nhập" className="grow2">
                 <Radio.Group value={mode} onChange={(e) => setMode(e.target.value)}>
@@ -269,7 +269,7 @@ function SessionList({ reloadKey }) {
         ]}
       />
       <Modal title="Sửa buổi học" open={Boolean(editing)} onCancel={() => setEditing(null)} onOk={() => form.submit()} okText="Lưu" cancelText="Hủy" destroyOnHidden>
-        {formError && <Alert type="error" showIcon title={formError.message} style={{ marginBottom: 12 }} description={formError.details?.map((d) => `Lớp ${d.courseCode} (${d.classCode})`).join(', ')} />}
+        {formError && <Alert type="error" showIcon title={formError.message} style={{ marginBottom: 12 }} description={formError.details?.map((d) => (d.source === 'ROOM_BOOKING' ? `Lượt đặt ${d.requestCode}` : `Lớp ${d.courseCode} (${d.classCode})`)).join(', ')} />}
         <Form form={form} layout="vertical" requiredMark={false} onFinish={save}>
           <Form.Item label="Phòng" name="roomCode" rules={[{ required: true }]}>
             <Select options={rooms.map((r) => ({ value: r.code, label: `${r.code} · ${r.capacity} chỗ` }))} />

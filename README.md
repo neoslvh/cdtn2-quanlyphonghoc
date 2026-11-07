@@ -2,16 +2,22 @@
 
 Mã nguồn đồ án Chuyên đề Tốt nghiệp 2 của nhóm Trần Đăng Khoa, Lưu Văn Hưng, Nguyễn Gia Huy. Kiến trúc và lý do chọn công nghệ được trình bày trong tài liệu docs/Buoi4_ThietKeKienTruc_CongNghe.docx.
 
-Ở phiên bản hiện tại, project có khung chạy thông từ đầu đến cuối (API `/api/hello`) và chức năng đăng nhập, đăng xuất, cấp tài khoản và đổi mật khẩu (FR-01, FR-02, Sprint 2).
+Ở phiên bản hiện tại, hệ thống có đăng nhập, cấp tài khoản và đổi mật khẩu (FR-01, FR-02), quản lý phòng (FR-03), tra cứu phòng trống (FR-06), lập, gửi và hủy yêu cầu sử dụng phòng (FR-07, FR-08, FR-09) và quản lý lịch học chính khóa của Phòng Đào tạo (FR-23), tức toàn bộ phạm vi Sprint 2. Duyệt yêu cầu, thiết bị, thông báo và các chức năng còn lại làm ở các sprint sau.
 
 ## 1. Cấu trúc thư mục
 
 ```
 backend/    API Node.js, Express, Prisma
-  src/        app.js khai báo route, server.js khởi động máy chủ
-  prisma/     schema, migration và dữ liệu mẫu
-  tests/      kiểm thử bằng Jest và Supertest
+  src/routes/        nhận request HTTP, đổi lỗi nghiệp vụ thành mã HTTP
+  src/services/      quy tắc nghiệp vụ, không chứa gì về HTTP hay SQL
+  src/repositories/  đọc ghi PostgreSQL bằng Prisma, không chứa quy tắc nghiệp vụ
+  src/validators/    kiểm tra định dạng dữ liệu vào
+  prisma/            schema, migration và dữ liệu mẫu
+  tests/unit/        test tầng service với repository giả
+  tests/api/         test qua HTTP với supertest
+  tests/integration/ test trên PostgreSQL thật (RUN_PG_TESTS=1)
 frontend/   giao diện React, Vite, Ant Design
+e2e/        kiểm thử tự động giao diện bằng Playwright
 docs/       SRS, Product Backlog, tài liệu thiết kế kiến trúc, API_XacThuc.md
 .github/    CI, mẫu pull request, CODEOWNERS
 CONTRIBUTING.md   quy trình nhánh, commit, pull request
@@ -72,16 +78,36 @@ npm run dev
 
 Mở http://localhost:5173. Vite tự chuyển các lời gọi `/api` sang backend ở cổng 3000.
 
-Các màn tra cứu phòng, phiếu đề xuất và lịch học chính khóa gọi các API chưa có ở backend nên chạy trên dữ liệu giả trong `frontend/src/mock` khi `VITE_API_MOCK=true` (đã đặt sẵn cho `npm run dev` và `docker compose`), theo đúng API Contract (đăng nhập và tài khoản vẫn gọi API thật). Dữ liệu giả mất khi tải lại trang. Khi chạy bằng dữ liệu giả, giao diện hiện một biểu ngữ báo rõ. Khi backend làm xong các API đó, bỏ biến này (hoặc đặt `false`, và đổi `VITE_API_MOCK` trong `docker-compose.yml`) để màn hình dùng API thật mà không phải sửa mã. Muốn Vite chuyển `/api` tới một máy chủ khác cổng 3000, đặt biến `API_TARGET`.
+Giao diện gọi API thật qua proxy. Muốn chạy riêng giao diện mà không cần backend (ví dụ để demo hay phát triển màn hình mới), đặt `VITE_API_MOCK=true` để dùng dữ liệu giả trong `frontend/src/mock`, theo đúng API Contract; khi đó có biểu ngữ báo rõ và dữ liệu mất khi tải lại trang. Muốn Vite chuyển `/api` tới máy chủ khác cổng 3000, đặt biến `API_TARGET`.
 
 ## 4. Kiểm thử
+
+Bốn tầng kiểm thử, từ nhanh đến chậm.
+
+Tầng unit và API của backend không cần cơ sở dữ liệu, dùng repository giả trong bộ nhớ:
 
 ```
 cd backend
 npm test
 ```
 
-Bộ kiểm thử có 35 ca: hai ca cho `/api/hello`, còn lại cho đăng nhập, phiên làm việc, cấp tài khoản, đổi và đặt lại mật khẩu, duyệt tài khoản và đăng ký tự do. Tất cả dùng cơ sở dữ liệu giả lập nên chạy được mà không cần PostgreSQL.
+Tầng tích hợp chạy trên PostgreSQL thật (migration, ràng buộc loại trừ GiST, giao dịch, truy cập đồng thời). Cần cơ sở dữ liệu đã `npm run db:migrate` và `npm run db:seed`:
+
+```
+cd backend
+RUN_PG_TESTS=1 DATABASE_URL=postgresql://qlphong:qlphong_dev@localhost:5433/qlphong npx jest tests/integration
+```
+
+Giao diện có test cho lớp dữ liệu giả (`cd frontend && npm test`). Kiểm thử tự động toàn hệ thống bằng Playwright chạy trên hệ thống đã dựng bằng Docker, dùng Chrome cài sẵn trên máy:
+
+```
+docker compose up -d --build
+cd e2e
+npm install
+npx playwright test
+```
+
+Đổi địa chỉ hệ thống bằng biến `E2E_BASE_URL` (mặc định http://localhost:8080). Báo cáo xem bằng `npm run report`. CI chạy unit, API, tích hợp PostgreSQL, build và test giao diện, kiểm thử script Jira; bộ Playwright chạy tay vì cần dựng cả hệ thống.
 
 ## 5. Quy trình làm việc nhóm
 
