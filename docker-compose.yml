@@ -31,11 +31,7 @@ services:
         condition: service_healthy
 
   web:
-    build:
-      context: ./frontend
-      args:
-        # Các API phòng, yêu cầu, lịch học chưa có ở backend nên bản chạy thử dùng dữ liệu giả. Đổi thành false khi backend xong.
-        VITE_API_MOCK: "true"
+    build: ./frontend
     ports:
       - "8080:80"
     depends_on:
