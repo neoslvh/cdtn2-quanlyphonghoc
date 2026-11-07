@@ -53,6 +53,21 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; colo
 .tile h3 { margin: 0 0 6px; font-size: 16px; color: var(--vlu-navy); }
 .tile p { margin: 0; color: var(--vlu-gray); font-size: 14px; }
 
+.tile-link { display: block; text-decoration: none; transition: border-color 0.15s, box-shadow 0.15s; }
+.tile-link:hover { border-color: var(--vlu-red); box-shadow: 0 6px 18px rgba(16, 17, 41, 0.08); }
+
+/* Khối nội dung của các trang nghiệp vụ */
+.panel { background: #fff; border: 1px solid var(--vlu-line); border-radius: 12px; padding: 22px 24px; margin-bottom: 16px; }
+.panel h2 { margin: 0 0 16px; font-size: 17px; font-weight: 800; color: var(--vlu-navy); }
+.form-row { display: flex; flex-wrap: wrap; gap: 0 16px; align-items: flex-start; }
+.form-row > * { flex: 1 1 180px; min-width: 0; }
+.form-row > .grow2 { flex: 2 1 320px; }
+.form-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: flex-end; margin-top: 8px; }
+.note { margin: 12px 0 0; color: var(--vlu-gray); font-size: 13px; line-height: 1.5; }
+.equip-grid { display: flex; flex-wrap: wrap; gap: 12px 28px; }
+.equip-item { display: flex; align-items: center; gap: 8px; }
+.stat-row { display: flex; flex-wrap: wrap; gap: 24px 48px; }
+
 @media (max-width: 900px) {
   .auth-body { grid-template-columns: 1fr; }
   .auth-hero { display: none; }
