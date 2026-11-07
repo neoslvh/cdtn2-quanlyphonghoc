@@ -38,6 +38,14 @@ describe('GET /api/rooms/available', () => {
     expect(res.body.items[0]).toMatchObject({ campus: 'Cơ sở 1', roomType: 'CLASSROOM', capacity: 80 });
   });
 
+  test('campus gửi hai lần (thành mảng) trả 400, không phải 500', async () => {
+    // Express 5 dùng bộ phân tích query đơn giản nên campus[x]=1 không thành object; trường hợp object đã có ở test unit.
+    const { db, app } = setup();
+    const { auth } = login(db, 'REQUESTER');
+    const res = await request(app).get(`/api/rooms/available?${qs({ from: at(8), to: at(10), capacity: 10 })}&campus=a&campus=b`).set(auth);
+    expect([res.status, res.body.error.details[0].field]).toEqual([400, 'campus']);
+  });
+
   test('tham số sai trả 400 kèm trường lỗi để giao diện hiện dưới ô nhập', async () => {
     const { db, app } = setup();
     const { auth } = login(db, 'REQUESTER');

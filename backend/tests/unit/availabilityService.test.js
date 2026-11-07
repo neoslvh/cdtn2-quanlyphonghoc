@@ -74,6 +74,10 @@ describe('kiểm tra tham số', () => {
     ['kết thúc sau 21:30', { from: at(20).toISOString(), to: at(22).toISOString() }, ['to']],
     ['số người bằng 0', { capacity: '0' }, ['capacity']],
     ['loại phòng lạ', { roomType: 'VILLA' }, ['roomType']],
+    ['cơ sở là mảng', { campus: ['Cơ sở 1', 'Cơ sở 2'] }, ['campus']],
+    ['cơ sở là object', { campus: { contains: 'x' } }, ['campus']],
+    ['giờ bắt đầu không có múi giờ', { from: '2026-11-10T08:00:00' }, ['from']],
+    ['giờ kết thúc dạng ngày giờ có khoảng trắng', { to: '2026-11-10 10:00' }, ['to']],
     ['thiết bị sai dạng', { equipment: 'MICROPHONE:abc' }, ['equipment']],
   ])('%s thì VALIDATION_ERROR', async (_name, over, fields) => {
     const { service } = setup();
