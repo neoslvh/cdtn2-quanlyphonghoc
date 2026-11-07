@@ -106,7 +106,7 @@ export default function RoomManage() {
           </Form.Item>
           <div className="form-row">
             <Form.Item label="Cơ sở" name="campus" rules={[{ required: true, message: 'Chọn cơ sở' }]}>
-              <Select options={CAMPUSES.map((c) => ({ value: c, label: c }))} placeholder="Chọn cơ sở" />
+              <Select options={CAMPUSES.map((c) => ({ value: c, label: c }))} placeholder="Chọn cơ sở" disabled={Boolean(editing?.id)} />
             </Form.Item>
             <Form.Item label="Loại phòng" name="roomType" rules={[{ required: true, message: 'Chọn loại phòng' }]}>
               <Select options={options(ROOM_TYPE)} />
