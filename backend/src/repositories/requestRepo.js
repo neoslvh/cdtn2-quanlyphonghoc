@@ -33,13 +33,19 @@ function createRequestRepo(prisma) {
     createRequest: async ({ requesterId, equipment, ...data }) =>
       flatRequest(await prisma.usageRequest.create({ data: { ...data, requesterId, status: 'DRAFT', equipment: { create: equipment } }, include })),
 
-    /** Sửa phiếu nháp: thay toàn bộ danh sách thiết bị trong một giao dịch. */
+    /**
+     * Sửa phiếu nháp: cập nhật có điều kiện status DRAFT và thay toàn bộ danh sách thiết bị trong một giao dịch.
+     * Trả phiếu mới, hoặc null nếu phiếu không còn là DRAFT (vừa được gửi hoặc hủy).
+     */
     updateRequest: async (id, { equipment, ...data }) => {
-      await prisma.$transaction([
-        prisma.requestEquipment.deleteMany({ where: { requestId: id } }),
-        prisma.usageRequest.update({ where: { id }, data: { ...data, equipment: { create: equipment } } }),
-      ]);
-      return find(id);
+      const ok = await prisma.$transaction(async (tx) => {
+        const { count } = await tx.usageRequest.updateMany({ where: { id, status: 'DRAFT' }, data });
+        if (!count) return false;
+        await tx.requestEquipment.deleteMany({ where: { requestId: id } });
+        await tx.requestEquipment.createMany({ data: equipment.map((e) => ({ ...e, requestId: id })) });
+        return true;
+      });
+      return ok ? find(id) : null;
     },
 
     /** Danh sách phiếu mới nhất trước. requesterId bỏ trống thì lấy của mọi người. Trả { items, total }. */

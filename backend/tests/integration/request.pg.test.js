@@ -72,7 +72,7 @@ maybe('phiếu đề xuất trên PostgreSQL thật', () => {
 
   test('đính kèm lưu bản ghi, danh sách của tôi phân trang trong cơ sở dữ liệu', async () => {
     const r = await service.create(user, body(11));
-    const withFile = await service.attach(user, r.id, { originalname: 'KeHoach.pdf', size: 3, buffer: Buffer.from('abc') });
+    const withFile = await service.attach(user, r.id, { originalname: 'KeHoach.pdf', size: 3, buffer: Buffer.from('%PDF-1.4 abc') });
     expect(withFile.attachments.map((a) => a.fileName)).toEqual(['KeHoach.pdf']);
     const page = await service.list(user, {}, { page: 1, pageSize: 2 });
     expect(page.items).toHaveLength(2);

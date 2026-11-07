@@ -35,6 +35,9 @@ function createGuards({ db, jwtSecret }) {
     requireAuth: auth(false),
     requireAuthAny: auth(true),
     requireRole: (...roles) => (req, res, next) => (roles.includes(req.user.role) ? next() : next(forbidden())),
+    // Quyền nhập và quản lý lịch học chính khóa: ADMIN, hoặc APPROVER thuộc Phòng Đào tạo (API Contract mục 1.3, BR-12).
+    requireScheduleManager: (req, res, next) =>
+      req.user.role === 'ADMIN' || (req.user.role === 'APPROVER' && req.user.organization?.name === 'Phòng Đào tạo') ? next() : next(forbidden()),
   };
 }
 

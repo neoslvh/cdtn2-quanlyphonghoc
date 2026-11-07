@@ -16,11 +16,20 @@ function fakeDb() {
   const rooms = [];
   const sessions = [];
   const requests = [];
+  const batches = [];
   let requestNo = 0;
   const bookings = [];
   const overlaps = (x, from, to) => x.startAt < to && from < x.endAt;
   let seq = 0;
   const id = (p) => `${p}-${++seq}`;
+  const conflictsOf = (bid) => {
+    const out = [];
+    for (const r of requests.filter((q) => ['PENDING', 'APPROVED'].includes(q.status))) {
+      const x = sessions.find((y) => y.batchId === bid && y.roomId === r.roomId && overlaps(y, r.startAt, r.endAt));
+      if (x) out.push({ requestId: r.id, requestNo: r.requestNo, requestStatus: r.status, startAt: r.startAt, endAt: r.endAt, roomCode: r.room.code, requesterName: r.requesterName, courseCode: x.courseCode, classCode: x.classCode });
+    }
+    return out;
+  };
   const flat = (r) => {
     const b = buildings.find((x) => x.id === r.buildingId);
     return { ...r, buildingCode: b.code, buildingName: b.name, campus: b.campus };
@@ -32,6 +41,7 @@ function fakeDb() {
     sessions,
     bookings,
     requests,
+    batches,
     countRooms: async () => rooms.length,
     findOrganization: async (oid) => ORGS.find((o) => o.id === oid) || null,
     listOrganizations: async () => ORGS,
@@ -43,11 +53,80 @@ function fakeDb() {
     // trùng lịch
     busyRoomIds: async (from, to) =>
       new Set([...sessions.filter((x) => x.status === 'ACTIVE' && overlaps(x, from, to)), ...bookings.filter((x) => x.status === 'ACTIVE' && overlaps(x, from, to))].map((x) => x.roomId)),
-    findRoomConflict: async (roomId, from, to, { excludeRequestId } = {}) => {
-      const s = sessions.find((x) => x.roomId === roomId && x.status === 'ACTIVE' && overlaps(x, from, to));
+    findRoomConflict: async (roomId, from, to, { excludeRequestId, excludeSessionId } = {}) => {
+      const s = sessions.find((x) => x.roomId === roomId && x.status === 'ACTIVE' && overlaps(x, from, to) && (!excludeSessionId || x.id !== excludeSessionId));
       if (s) return { source: 'CLASS_SCHEDULE', courseCode: s.courseCode, classCode: s.classCode };
       const b = bookings.find((x) => x.roomId === roomId && x.status === 'ACTIVE' && overlaps(x, from, to) && (!excludeRequestId || x.requestId !== excludeRequestId));
       return b ? { source: 'ROOM_BOOKING', requestNo: b.requestNo } : null;
+    },
+    // thời khóa biểu
+    listPeriodSlots: async () => {
+      const f = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+      return Array.from({ length: 12 }, (_, i) => {
+        const start = (i < 6 ? 7 * 60 : 13 * 60) + (i % 6) * 45;
+        return { period: i + 1, startTime: f(start), endTime: f(start + 45) };
+      });
+    },
+    findRoomsByCodes: async (codes) => new Map(rooms.filter((r) => codes.includes(r.code)).map((r) => [r.code, r.id])),
+    createImportBatch: async ({ importedBy, semester, mode, fileName, rowCount, sessions: list }) => {
+      const batch = { id: `20000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`, importedBy, semester, mode, fileName, status: 'PREVIEW', rowCount, sessionCount: list.length, conflictCount: 0, createdAt: new Date(), committedAt: null };
+      batches.push(batch);
+      for (const x of list) sessions.push({ id: `30000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`, batchId: batch.id, roomCode: rooms.find((r) => r.id === x.roomId).code, status: 'PENDING', ...x });
+      const conflicts = conflictsOf(batch.id);
+      batch.conflictCount = conflicts.length;
+      return { batch, conflicts };
+    },
+    findBatch: async (bid) => batches.find((b) => b.id === bid) || null,
+    batchConflicts: async (bid) => conflictsOf(bid),
+    listBatches: async ({ page, pageSize }) => ({ items: batches.slice().reverse().slice((page - 1) * pageSize, page * pageSize), total: batches.length }),
+    discardBatch: async (bid) => {
+      const b = batches.find((x) => x.id === bid);
+      if (b.status !== 'PREVIEW') return false;
+      b.status = 'DISCARDED';
+      for (let i = sessions.length - 1; i >= 0; i--) if (sessions[i].batchId === bid && sessions[i].status === 'PENDING') sessions.splice(i, 1);
+      return true;
+    },
+    commitBatch: async (bid, { cancelReason }) => {
+      const b = batches.find((x) => x.id === bid);
+      if (b.status !== 'PREVIEW') return null;
+      b.status = 'COMMITTED';
+      const conflicts = conflictsOf(bid);
+      let replaced = 0;
+      if (b.mode === 'REPLACE') {
+        for (const x of sessions) {
+          const other = batches.find((y) => y.id === x.batchId);
+          if (x.status === 'ACTIVE' && other.semester === b.semester && x.batchId !== bid) { x.status = 'CANCELLED'; replaced++; }
+        }
+      }
+      let activated = 0;
+      for (const x of sessions) if (x.batchId === bid && x.status === 'PENDING') { x.status = 'ACTIVE'; activated++; }
+      for (const c of conflicts) {
+        const r = requests.find((q) => q.id === c.requestId);
+        r.status = 'CANCELLED';
+        r.cancelReason = cancelReason(c);
+        r.steps = r.steps.map((st) => ({ ...st, status: 'CANCELLED' }));
+        for (const bk of bookings) if (bk.requestId === r.id) bk.status = 'CANCELLED';
+      }
+      return { activated, replaced, cancelled: conflicts.map((c) => ({ ...c, cancelReason: cancelReason(c) })) };
+    },
+    listSessions: async ({ roomCode, from, to, status, page, pageSize }) => {
+      const all = sessions
+        .filter((x) => (!roomCode || x.roomCode === roomCode) && (status ? x.status === status : x.status !== 'PENDING') && (!from || x.startAt >= from) && (!to || x.startAt < to))
+        .sort((a, b) => a.startAt - b.startAt);
+      return { items: all.slice((page - 1) * pageSize, page * pageSize), total: all.length };
+    },
+    findSession: async (sid) => sessions.find((x) => x.id === sid) || null,
+    updateSession: async (sid, data) => {
+      const x = sessions.find((y) => y.id === sid);
+      if (x.status !== 'ACTIVE') return null;
+      Object.assign(x, { roomId: data.roomId, roomCode: rooms.find((r) => r.id === data.roomId).code, startAt: data.startAt, endAt: data.endAt });
+      return x;
+    },
+    cancelSession: async (sid) => {
+      const x = sessions.find((y) => y.id === sid);
+      if (x.status !== 'ACTIVE') return null;
+      x.status = 'CANCELLED';
+      return x;
     },
     // phiếu đề xuất
     findOrganizationByName: async (name) => ORGS.find((o) => o.name === name) || null,
@@ -75,6 +154,7 @@ function fakeDb() {
     },
     updateRequest: async (rid, { equipment, ...data }) => {
       const r = requests.find((x) => x.id === rid);
+      if (r.status !== 'DRAFT') return null;
       const room = rooms.find((x) => x.id === data.roomId);
       Object.assign(r, data, { equipment, room: { id: room.id, code: room.code, name: room.name, capacity: room.capacity, status: room.status } });
       return r;
@@ -155,7 +235,8 @@ function addRoom(db, over = {}) {
 // Lưu tệp giả trong bộ nhớ cho test đính kèm.
 function fakeStorage() {
   const saved = [];
-  return { saved, save: async (buffer, ext) => { saved.push({ size: buffer.length, ext }); return `file-${saved.length}${ext}`; } };
+  const removed = [];
+  return { saved, removed, save: async (buffer, ext) => { saved.push({ size: buffer.length, ext }); return `file-${saved.length}${ext}`; }, remove: async (name) => { removed.push(name); } };
 }
 
 module.exports = { fakeDb, login, addRoom, fakeStorage, ORGS, SECRET };

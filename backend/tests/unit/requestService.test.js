@@ -51,6 +51,13 @@ describe('tạo và sửa phiếu nháp', () => {
     await service.submit(user, r.id);
     expect((await fails(service.update(user, r.id, body()))).code).toBe('INVALID_STATE');
   });
+
+  test('phiếu vừa được gửi giữa hai bước: repo báo không còn nháp thì sửa bị từ chối', async () => {
+    const { service, user, body, repo } = setup();
+    const r = await service.create(user, body());
+    repo.updateRequest = async () => null;
+    expect((await fails(service.update(user, r.id, body()))).code).toBe('INVALID_STATE');
+  });
 });
 
 describe('gửi phiếu, thứ tự kiểm tra theo bảng 1.7', () => {
@@ -107,7 +114,7 @@ describe('gửi phiếu, thứ tự kiểm tra theo bảng 1.7', () => {
     big.room.capacity = 300;
     const r = await big.service.create(big.user, big.body({ participantCount: 220 }));
     expect((await fails(big.service.submit(big.user, r.id))).code).toBe('ATTACHMENT_REQUIRED');
-    await big.service.attach(big.user, r.id, { originalname: 'VanBanBGH.pdf', size: 1000, buffer: Buffer.from('x') });
+    await big.service.attach(big.user, r.id, { originalname: 'VanBanBGH.pdf', size: 1000, buffer: Buffer.from('%PDF-1.4 x') });
     const sent = await big.service.submit(big.user, r.id);
     expect(sent.steps.map((s) => s.organizationName)).toEqual(['Phòng Đào tạo', 'Ban Giám hiệu', 'Phòng Quản trị cơ sở vật chất']);
   });
@@ -160,7 +167,7 @@ describe('đính kèm tệp', () => {
   test('nhận PDF, từ chối quá 5 MB và định dạng lạ, ghi tên gốc nhưng lưu bằng tên ngẫu nhiên', async () => {
     const { service, user, body, storage } = setup();
     const r = await service.create(user, body());
-    const ok = await service.attach(user, r.id, { originalname: '../../etc/KeHoach.PDF', size: 10, buffer: Buffer.from('0123456789') });
+    const ok = await service.attach(user, r.id, { originalname: '../../etc/KeHoach.PDF', size: 10, buffer: Buffer.from('%PDF-1.4 x') });
     expect(ok.attachments).toEqual([{ id: expect.any(String), fileName: 'KeHoach.PDF' }]);
     expect(storage.saved).toEqual([{ size: 10, ext: '.pdf' }]);
     const big = await fails(service.attach(user, r.id, { originalname: 'a.pdf', size: 5 * 1024 * 1024 + 1, buffer: Buffer.alloc(1) }));
@@ -168,6 +175,24 @@ describe('đính kèm tệp', () => {
     const exe = await fails(service.attach(user, r.id, { originalname: 'virus.exe', size: 10, buffer: Buffer.alloc(1) }));
     expect([exe.status, exe.code]).toEqual([415, 'UNSUPPORTED_FILE_TYPE']);
     expect((await fails(service.attach(user, r.id, undefined))).details[0].field).toBe('file');
+  });
+
+  test('tệp đổi đuôi (nội dung không đúng chữ ký) bị từ chối, mỗi phiếu tối đa 5 tệp', async () => {
+    const { service, user, body } = setup();
+    const r = await service.create(user, body());
+    const fake = await fails(service.attach(user, r.id, { originalname: 'virus.pdf', size: 10, buffer: Buffer.from('MZ  chương trình') }));
+    expect([fake.status, fake.code]).toEqual([415, 'UNSUPPORTED_FILE_TYPE']);
+    const png = { originalname: 'a.png', size: 8, buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0]) };
+    for (let i = 0; i < 5; i++) await service.attach(user, r.id, png);
+    expect((await fails(service.attach(user, r.id, png))).details[0].message).toContain('tối đa 5');
+  });
+
+  test('lưu bản ghi lỗi thì tệp vừa ghi bị xóa, không mồ côi trên đĩa', async () => {
+    const { service, user, body, repo, storage } = setup();
+    const r = await service.create(user, body());
+    repo.addAttachment = async () => { throw new Error('mất kết nối'); };
+    await fails(service.attach(user, r.id, { originalname: 'a.pdf', size: 8, buffer: Buffer.from('%PDF-1.4') }));
+    expect(storage.removed).toEqual(['file-1.pdf']);
   });
 });
 
