@@ -1,6 +1,6 @@
 const request = require('supertest');
-const { createApp } = require('../src/app');
-const { fakeDb, login } = require('./helpers');
+const { createApp } = require('../../src/app');
+const { fakeDb, login } = require('../helpers');
 
 const room = { code: 'A.10.01', name: 'Phòng A.10.01', campus: 'Cơ sở 1', roomType: 'CLASSROOM', capacity: 80, status: 'AVAILABLE' };
 

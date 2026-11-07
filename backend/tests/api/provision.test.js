@@ -1,6 +1,6 @@
 const request = require('supertest');
 const bcrypt = require('bcryptjs');
-const { createApp } = require('../src/app');
+const { createApp } = require('../../src/app');
 
 const ORG = { id: 'org-1', name: 'Khoa Công nghệ thông tin', type: 'REQUESTER_UNIT', active: true };
 const APPROVAL_ORG = { id: 'org-2', name: 'Phòng Đào tạo', type: 'APPROVAL_UNIT', active: true };

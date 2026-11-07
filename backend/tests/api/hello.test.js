@@ -1,5 +1,5 @@
 const request = require('supertest');
-const { createApp } = require('../src/app');
+const { createApp } = require('../../src/app');
 
 test('GET /api/hello trả về lời chào và số phòng', async () => {
   const app = createApp({ db: { countRooms: async () => 2 } });
