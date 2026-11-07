@@ -9,11 +9,14 @@ const ORGS = [
   { id: 'org-csvc', name: 'Phòng Quản trị cơ sở vật chất', type: 'FACILITY_UNIT', active: true },
 ];
 
-// Cơ sở dữ liệu giả trong bộ nhớ, cùng giao diện với src/prismaDb.js. Mỗi nhóm hàm được thêm dần theo từng API.
+// Cơ sở dữ liệu giả trong bộ nhớ, cùng giao diện với các repository trong src/repositories. Mỗi nhóm hàm được thêm dần theo từng API.
 function fakeDb() {
   const users = [];
   const buildings = [{ id: 'b-a', code: 'A', name: 'Tòa A', campus: 'Cơ sở 1' }];
   const rooms = [];
+  const sessions = [];
+  const bookings = [];
+  const overlaps = (x, from, to) => x.startAt < to && from < x.endAt;
   let seq = 0;
   const id = (p) => `${p}-${++seq}`;
   const flat = (r) => {
@@ -24,6 +27,8 @@ function fakeDb() {
     users,
     buildings,
     rooms,
+    sessions,
+    bookings,
     countRooms: async () => rooms.length,
     findOrganization: async (oid) => ORGS.find((o) => o.id === oid) || null,
     listOrganizations: async () => ORGS,
@@ -32,11 +37,20 @@ function fakeDb() {
       return u ? { ...u, organization: ORGS.find((o) => o.id === u.organizationId) } : null;
     },
     findUserByEmail: async (email) => users.find((u) => u.email === email) || null,
+    // trùng lịch
+    busyRoomIds: async (from, to) =>
+      new Set([...sessions.filter((x) => x.status === 'ACTIVE' && overlaps(x, from, to)), ...bookings.filter((x) => x.status === 'ACTIVE' && overlaps(x, from, to))].map((x) => x.roomId)),
+    findRoomConflict: async (roomId, from, to, { excludeRequestId } = {}) => {
+      const s = sessions.find((x) => x.roomId === roomId && x.status === 'ACTIVE' && overlaps(x, from, to));
+      if (s) return { source: 'CLASS_SCHEDULE', courseCode: s.courseCode, classCode: s.classCode };
+      const b = bookings.find((x) => x.roomId === roomId && x.status === 'ACTIVE' && overlaps(x, from, to) && (!excludeRequestId || x.requestId !== excludeRequestId));
+      return b ? { source: 'ROOM_BOOKING', requestNo: b.requestNo } : null;
+    },
     // phòng
-    listRooms: async ({ campus, roomType, status, q, page, pageSize }) => {
+    listRooms: async ({ campus, roomType, status, q, minCapacity, page, pageSize }) => {
       const all = rooms
         .map(flat)
-        .filter((r) => (!campus || r.campus === campus) && (!roomType || r.roomType === roomType) && (!status || r.status === status))
+        .filter((r) => (!campus || r.campus === campus) && (!roomType || r.roomType === roomType) && (!status || r.status === status) && (!minCapacity || r.capacity >= minCapacity))
         .filter((r) => !q || `${r.code} ${r.name}`.toLowerCase().includes(q.toLowerCase()))
         .sort((a, b) => a.code.localeCompare(b.code));
       return { items: page ? all.slice((page - 1) * pageSize, page * pageSize) : all, total: all.length };
@@ -74,4 +88,12 @@ function login(db, role, orgId = 'org-cntt') {
   return { user, auth: { Authorization: `Bearer ${jwt.sign({ sub: user.id, role }, SECRET, { expiresIn: '1h' })}` } };
 }
 
-module.exports = { fakeDb, login, ORGS, SECRET };
+// Thêm nhanh một phòng vào cơ sở dữ liệu giả (tòa A, cơ sở 1) với thiết bị tốt theo loại.
+function addRoom(db, over = {}) {
+  const n = db.rooms.length + 1;
+  const room = { id: `00000000-0000-4000-8000-${String(900 + n).padStart(12, '0')}`, buildingId: 'b-a', code: `A.10.${String(n).padStart(2, '0')}`, name: `Phòng ${n}`, roomType: 'CLASSROOM', capacity: 80, status: 'AVAILABLE', equipment: {}, ...over };
+  db.rooms.push(room);
+  return room;
+}
+
+module.exports = { fakeDb, login, addRoom, ORGS, SECRET };

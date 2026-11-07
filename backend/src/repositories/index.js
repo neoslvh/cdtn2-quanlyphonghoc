@@ -1,3 +1,4 @@
+const { createAvailabilityRepo } = require('./availabilityRepo');
 const { createRoomRepo } = require('./roomRepo');
 const { createUserRepo } = require('./userRepo');
 
@@ -7,6 +8,7 @@ function createDb(prisma) {
     countRooms: () => prisma.room.count(),
     ...createUserRepo(prisma),
     ...createRoomRepo(prisma),
+    ...createAvailabilityRepo(prisma),
   };
 }
 
