@@ -1,10 +1,14 @@
 const express = require('express');
-const { authRoutes, ApiError } = require('./auth');
+const { authRoutes } = require('./auth');
+const { ApiError } = require('./errors');
+const { createGuards } = require('./guards');
+const { roomRoutes } = require('./rooms');
 
 // db được truyền vào để kiểm thử được lớp HTTP mà không cần cơ sở dữ liệu thật.
 function createApp({ db, jwtSecret = 'khoa-bi-mat-chi-dung-khi-kiem-thu', bcryptRounds, limiter, allowRegistration }) {
   const app = express();
   app.use(express.json());
+  const guards = createGuards({ db, jwtSecret });
 
   app.get('/api/hello', async (req, res, next) => {
     try {
@@ -16,6 +20,7 @@ function createApp({ db, jwtSecret = 'khoa-bi-mat-chi-dung-khi-kiem-thu', bcrypt
   });
 
   app.use('/api', authRoutes({ db, jwtSecret, bcryptRounds, limiter, allowRegistration }));
+  app.use('/api', roomRoutes({ db, guards }));
 
   app.use((err, req, res, next) => {
     if (err instanceof ApiError) {
