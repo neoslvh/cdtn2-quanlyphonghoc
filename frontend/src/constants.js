@@ -16,5 +16,5 @@ export const SESSION_STATUS = {
 export const STEP_STATUS = { PENDING: ['gold', 'Đang chờ'], WAITING: ['default', 'Chưa tới lượt'], APPROVED: ['green', 'Đã duyệt'], REJECTED: ['red', 'Từ chối'], CANCELLED: ['default', 'Đã hủy'] };
 // Cột của tệp thời khóa biểu mẫu, đúng thứ tự trong API Contract mục 1.5.5.
 export const SCHEDULE_COLUMNS = ['Học kỳ', 'Mã môn', 'Tên môn', 'Lớp', 'Thứ', 'Tiết bắt đầu', 'Số tiết', 'Mã phòng', 'Từ ngày', 'Đến ngày'];
-// Chỉ Phòng Đào tạo và quản trị viên được nhập lịch học chính khóa (BR-12).
+// Chỉ Phòng Đào tạo và quản trị viên được nhập lịch học chính khóa (BR-12). Đây chỉ để ẩn menu, quyền thật do máy chủ kiểm tra khi có API.
 export const canManageSchedule = (u) => u.role === 'ADMIN' || (u.role === 'APPROVER' && u.organization?.name === 'Phòng Đào tạo');
