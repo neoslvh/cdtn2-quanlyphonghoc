@@ -1,0 +1,84 @@
+// Tầng repository: đọc ghi phiếu đề xuất, thiết bị, tệp đính kèm và các bước duyệt. Không chứa quy tắc nghiệp vụ.
+const { missing } = require('./common');
+
+const include = {
+  room: { select: { id: true, code: true, name: true, capacity: true, status: true } },
+  requester: { select: { fullName: true } },
+  organization: { select: { name: true } },
+  equipment: true,
+  attachments: { orderBy: { createdAt: 'asc' } },
+  steps: { include: { approverOrg: { select: { name: true } } }, orderBy: { stepNo: 'asc' } },
+};
+
+// Phiếu từ Prisma sang dạng phẳng mà service dùng.
+function flatRequest(r) {
+  if (!r) return null;
+  const { requester, organization, equipment, attachments, steps, ...rest } = r;
+  return {
+    ...rest,
+    requesterName: requester.fullName,
+    organizationName: organization.name,
+    equipment: equipment.map((e) => ({ itemType: e.itemType, quantity: e.quantity, otherDescription: e.otherDescription })),
+    attachments: attachments.map((a) => ({ id: a.id, fileName: a.fileName, type: a.type })),
+    steps: steps.map((s) => ({ stepNo: s.stepNo, organizationName: s.approverOrg.name, status: s.status })),
+  };
+}
+
+function createRequestRepo(prisma) {
+  const find = (id) => prisma.usageRequest.findUnique({ where: { id }, include }).then(flatRequest);
+  return {
+    findRequest: (id) => find(id).catch(missing),
+    findOrganizationByName: (name) => prisma.organization.findFirst({ where: { name, active: true } }),
+
+    createRequest: async ({ requesterId, equipment, ...data }) =>
+      flatRequest(await prisma.usageRequest.create({ data: { ...data, requesterId, status: 'DRAFT', equipment: { create: equipment } }, include })),
+
+    /** Sửa phiếu nháp: thay toàn bộ danh sách thiết bị trong một giao dịch. */
+    updateRequest: async (id, { equipment, ...data }) => {
+      await prisma.$transaction([
+        prisma.requestEquipment.deleteMany({ where: { requestId: id } }),
+        prisma.usageRequest.update({ where: { id }, data: { ...data, equipment: { create: equipment } } }),
+      ]);
+      return find(id);
+    },
+
+    /** Danh sách phiếu mới nhất trước. requesterId bỏ trống thì lấy của mọi người. Trả { items, total }. */
+    listRequests: async ({ requesterId, status, page, pageSize }) => {
+      const where = { ...(requesterId ? { requesterId } : {}), ...(status ? { status } : {}) };
+      const [rows, total] = await Promise.all([
+        prisma.usageRequest.findMany({ where, include, orderBy: { createdAt: 'desc' }, skip: (page - 1) * pageSize, take: pageSize }),
+        prisma.usageRequest.count({ where }),
+      ]);
+      return { items: rows.map(flatRequest), total };
+    },
+
+    addAttachment: (requestId, data) => prisma.requestAttachment.create({ data: { requestId, ...data } }),
+
+    /**
+     * Chuyển phiếu từ DRAFT sang PENDING và tạo các bước duyệt trong cùng một giao dịch.
+     * Trả phiếu mới, hoặc null nếu phiếu không còn là DRAFT (đã có yêu cầu khác gửi trước).
+     */
+    submitRequest: async (id, steps, now) => {
+      const ok = await prisma.$transaction(async (tx) => {
+        const { count } = await tx.usageRequest.updateMany({ where: { id, status: 'DRAFT' }, data: { status: 'PENDING', submittedAt: now } });
+        if (!count) return false;
+        await tx.approvalStep.createMany({ data: steps.map((s) => ({ ...s, requestId: id })) });
+        return true;
+      });
+      return ok ? find(id) : null;
+    },
+
+    /** Hủy phiếu DRAFT hoặc PENDING cùng các bước chưa xử lý. Trả phiếu mới, hoặc null nếu không còn hủy được. */
+    cancelRequest: async (id, reason, now) => {
+      const ok = await prisma.$transaction(async (tx) => {
+        const { count } = await tx.usageRequest.updateMany({ where: { id, status: { in: ['DRAFT', 'PENDING'] } }, data: { status: 'CANCELLED', cancelReason: reason, cancelledAt: now } });
+        if (!count) return false;
+        await tx.approvalStep.updateMany({ where: { requestId: id, status: { in: ['PENDING', 'WAITING'] } }, data: { status: 'CANCELLED' } });
+        return true;
+      });
+      return ok ? find(id) : null;
+    },
+  };
+}
+
+module.exports = { createRequestRepo, flatRequest };
