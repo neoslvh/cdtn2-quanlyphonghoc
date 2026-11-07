@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { Button } from 'antd';
+import { USE_MOCK } from '../api';
 import { useAuth } from '../auth';
 import { canManageSchedule } from '../constants';
 
@@ -33,6 +34,7 @@ export default function Shell() {
           <Button onClick={logout}>Đăng xuất</Button>
         </div>
       </header>
+      {USE_MOCK && <div className="mock-banner">Đang dùng dữ liệu chạy thử cho phòng, yêu cầu và lịch học. Dữ liệu sẽ mất khi tải lại trang.</div>}
       <Outlet />
     </>
   );
