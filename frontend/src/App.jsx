@@ -2,21 +2,25 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { Spin } from 'antd';
 import { useAuth } from './auth';
 import AdminUsers from './pages/AdminUsers';
+import { canManageSchedule } from './constants';
 import ChangePassword from './pages/ChangePassword';
+import ClassSchedule from './pages/ClassSchedule';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import RequestForm from './pages/RequestForm';
+import RoomSearch from './pages/RoomSearch';
 import Shell from './pages/Shell';
 
 // Chặn trang cần đăng nhập, và tùy chọn chặn theo vai trò. Quyền thật vẫn do API kiểm tra, đây chỉ để giao diện không hiện trang sai.
-function Protected({ roles, children }) {
+function Protected({ roles, allow, children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
   if (loading) return <Spin fullscreen />;
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   // Mật khẩu tạm hoặc vừa được đặt lại: chỉ được vào trang đổi mật khẩu.
   if (user.mustChangePassword && location.pathname !== '/change-password') return <Navigate to="/change-password" replace />;
-  if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />;
+  if ((roles && !roles.includes(user.role)) || (allow && !allow(user))) return <Navigate to="/" replace />;
   return children;
 }
 
@@ -29,6 +33,9 @@ export default function App() {
         <Route element={<Protected><Shell /></Protected>}>
           <Route index element={<Home />} />
           <Route path="change-password" element={<ChangePassword />} />
+          <Route path="rooms/search" element={<RoomSearch />} />
+          <Route path="requests/new" element={<Protected roles={['REQUESTER']}><RequestForm /></Protected>} />
+          <Route path="class-schedule" element={<Protected allow={canManageSchedule}><ClassSchedule /></Protected>} />
           <Route path="admin/users" element={<Protected roles={['ADMIN']}><AdminUsers /></Protected>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
