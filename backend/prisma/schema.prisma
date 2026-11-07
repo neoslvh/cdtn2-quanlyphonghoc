@@ -7,42 +7,210 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Bảng tối thiểu để kiểm tra kết nối. ERD đầy đủ làm ở Buổi 5.
-model Room {
-  id       Int    @id @default(autoincrement())
-  code     String @unique
-  building String
-  capacity Int
-
-  @@map("rooms")
-}
-
 // Đơn vị theo ERD v4.1: APPROVAL_UNIT, FACILITY_UNIT hoặc REQUESTER_UNIT.
 model Organization {
-  id     String  @id @default(uuid()) @db.Uuid
-  name   String  @db.VarChar(150)
-  type   String  @db.VarChar(30)
-  active Boolean @default(true)
-  users  User[]
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String         @db.VarChar(150)
+  type          String         @db.VarChar(30)
+  active        Boolean        @default(true)
+  users         User[]
+  requests      UsageRequest[]
+  approvalSteps ApprovalStep[]
 
   @@map("organization")
 }
 
 // role: REQUESTER, APPROVER, FACILITY_STAFF, ADMIN. status: PENDING (chờ duyệt), ACTIVE hoặc LOCKED.
 model User {
-  id                 String       @id @default(uuid()) @db.Uuid
-  organizationId     String       @map("organization_id") @db.Uuid
-  organization       Organization @relation(fields: [organizationId], references: [id])
-  fullName           String       @map("full_name") @db.VarChar(150)
-  email              String       @unique @db.VarChar(255)
-  passwordHash       String       @map("password_hash") @db.VarChar(255)
-  role               String       @db.VarChar(30)
-  status             String       @db.VarChar(20)
+  id                 String              @id @default(uuid()) @db.Uuid
+  organizationId     String              @map("organization_id") @db.Uuid
+  organization       Organization        @relation(fields: [organizationId], references: [id])
+  fullName           String              @map("full_name") @db.VarChar(150)
+  email              String              @unique @db.VarChar(255)
+  passwordHash       String              @map("password_hash") @db.VarChar(255)
+  role               String              @db.VarChar(30)
+  status             String              @db.VarChar(20)
   // Tài khoản do admin cấp hoặc đặt lại mật khẩu thì phải đổi mật khẩu ở lần đăng nhập đầu.
-  mustChangePassword Boolean      @default(false) @map("must_change_password")
+  mustChangePassword Boolean             @default(false) @map("must_change_password")
   // Token cấp trước mốc này bị từ chối, để đổi hoặc đặt lại mật khẩu thu hồi các phiên cũ.
-  passwordChangedAt  DateTime?    @map("password_changed_at") @db.Timestamptz
-  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  passwordChangedAt  DateTime?           @map("password_changed_at") @db.Timestamptz
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  requests           UsageRequest[]
+  uploads            RequestAttachment[]
+  imports            ImportBatch[]
 
   @@map("user")
+}
+
+// Tòa nhà thuộc một cơ sở. Phòng gắn với tòa nhà.
+model Building {
+  id     String  @id @default(uuid()) @db.Uuid
+  code   String  @unique @db.VarChar(30)
+  name   String  @db.VarChar(150)
+  campus String? @db.VarChar(120)
+  rooms  Room[]
+
+  @@map("building")
+}
+
+// roomType: CLASSROOM, LAB, HALL. status: AVAILABLE, UNAVAILABLE, MAINTENANCE.
+model Room {
+  id         String          @id @default(uuid()) @db.Uuid
+  buildingId String          @map("building_id") @db.Uuid
+  building   Building        @relation(fields: [buildingId], references: [id])
+  code       String          @unique @db.VarChar(30)
+  name       String          @db.VarChar(150)
+  roomType   String          @map("room_type") @db.VarChar(30)
+  capacity   Int
+  status     String          @db.VarChar(20)
+  qrToken    String          @unique @default(uuid()) @map("qr_token") @db.VarChar(255)
+  equipment  Equipment[]
+  requests   UsageRequest[]
+  bookings   RoomBooking[]
+  sessions   ClassSchedule[]
+
+  @@map("room")
+}
+
+// Thiết bị trong phòng. status: GOOD, BROKEN, MAINTENANCE. Sprint 2 chỉ đọc để tra cứu phòng theo thiết bị.
+model Equipment {
+  id            String  @id @default(uuid()) @db.Uuid
+  roomId        String? @map("room_id") @db.Uuid
+  room          Room?   @relation(fields: [roomId], references: [id])
+  assetCode     String  @unique @map("asset_code") @db.VarChar(50)
+  name          String  @db.VarChar(150)
+  equipmentType String  @map("equipment_type") @db.VarChar(50)
+  status        String  @db.VarChar(20)
+  qrToken       String  @unique @default(uuid()) @map("qr_token") @db.VarChar(255)
+
+  @@map("equipment")
+}
+
+// Khung tiết: đổi tiết bắt đầu và số tiết trong thời khóa biểu sang giờ.
+model PeriodSlot {
+  periodNo  Int      @id @map("period_no")
+  startTime DateTime @map("start_time") @db.Time(0)
+  endTime   DateTime @map("end_time") @db.Time(0)
+
+  @@map("period_slot")
+}
+
+// mode: APPEND hoặc REPLACE. status: PREVIEW, COMMITTED hoặc DISCARDED.
+model ImportBatch {
+  id            String          @id @default(uuid()) @db.Uuid
+  importedBy    String          @map("imported_by") @db.Uuid
+  importer      User            @relation(fields: [importedBy], references: [id])
+  semester      String          @db.VarChar(30)
+  mode          String          @db.VarChar(20)
+  fileName      String          @map("file_name") @db.VarChar(255)
+  status        String          @db.VarChar(20)
+  rowCount      Int             @map("row_count")
+  sessionCount  Int             @map("session_count")
+  conflictCount Int             @map("conflict_count")
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  committedAt   DateTime?       @map("committed_at") @db.Timestamptz
+  sessions      ClassSchedule[]
+
+  @@map("import_batch")
+}
+
+// Từng buổi học trải ra từ thời khóa biểu. status: PENDING (xem trước, chưa chặn phòng), ACTIVE, CANCELLED.
+model ClassSchedule {
+  id         String      @id @default(uuid()) @db.Uuid
+  batchId    String      @map("batch_id") @db.Uuid
+  batch      ImportBatch @relation(fields: [batchId], references: [id])
+  roomId     String      @map("room_id") @db.Uuid
+  room       Room        @relation(fields: [roomId], references: [id])
+  courseCode String      @map("course_code") @db.VarChar(50)
+  courseName String      @map("course_name") @db.VarChar(200)
+  classCode  String      @map("class_code") @db.VarChar(50)
+  startAt    DateTime    @map("start_at") @db.Timestamptz
+  endAt      DateTime    @map("end_at") @db.Timestamptz
+  status     String      @db.VarChar(20)
+
+  @@map("class_schedule")
+}
+
+// status: DRAFT, PENDING, APPROVED, REJECTED, CANCELLED. requestNo sinh mã REQ-001.
+model UsageRequest {
+  id               String              @id @default(uuid()) @db.Uuid
+  requestNo        Int                 @unique @default(autoincrement()) @map("request_no")
+  requesterId      String              @map("requester_id") @db.Uuid
+  requester        User                @relation(fields: [requesterId], references: [id])
+  organizationId   String              @map("organization_id") @db.Uuid
+  organization     Organization        @relation(fields: [organizationId], references: [id])
+  roomId           String              @map("room_id") @db.Uuid
+  room             Room                @relation(fields: [roomId], references: [id])
+  purpose          String
+  startAt          DateTime            @map("start_at") @db.Timestamptz
+  endAt            DateTime            @map("end_at") @db.Timestamptz
+  participantCount Int                 @map("participant_count")
+  status           String              @db.VarChar(30)
+  submittedAt      DateTime?           @map("submitted_at") @db.Timestamptz
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  cancelReason     String?             @map("cancel_reason")
+  cancelledAt      DateTime?           @map("cancelled_at") @db.Timestamptz
+  equipment        RequestEquipment[]
+  attachments      RequestAttachment[]
+  steps            ApprovalStep[]
+  booking          RoomBooking?
+
+  @@map("usage_request")
+}
+
+// itemType: MICROPHONE, PROJECTOR, AUDIO, AIR_CONDITIONER hoặc OTHER (khi đó bắt buộc otherDescription).
+model RequestEquipment {
+  requestId        String       @map("request_id") @db.Uuid
+  request          UsageRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  itemType         String       @map("item_type") @db.VarChar(30)
+  quantity         Int          @default(1)
+  otherDescription String?      @map("other_description")
+
+  @@id([requestId, itemType])
+  @@map("request_equipment")
+}
+
+model RequestAttachment {
+  id         String       @id @default(uuid()) @db.Uuid
+  requestId  String       @map("request_id") @db.Uuid
+  request    UsageRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  type       String       @db.VarChar(30)
+  filePath   String       @map("file_path") @db.VarChar(500)
+  fileName   String       @map("file_name") @db.VarChar(255)
+  uploadedBy String       @map("uploaded_by") @db.Uuid
+  uploader   User         @relation(fields: [uploadedBy], references: [id])
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("request_attachment")
+}
+
+// status: PENDING (đang chờ), WAITING (chưa tới lượt), APPROVED, REJECTED, CANCELLED.
+model ApprovalStep {
+  id             String       @id @default(uuid()) @db.Uuid
+  requestId      String       @map("request_id") @db.Uuid
+  request        UsageRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  stepNo         Int          @map("step_no")
+  approverOrgId  String       @map("approver_org_id") @db.Uuid
+  approverOrg    Organization @relation(fields: [approverOrgId], references: [id])
+  approverUserId String?      @map("approver_user_id") @db.Uuid
+  status         String       @db.VarChar(20)
+  decisionReason String?      @map("decision_reason")
+  decidedAt      DateTime?    @map("decided_at") @db.Timestamptz
+
+  @@map("approval_step")
+}
+
+// Lượt đặt đã duyệt. Ràng buộc loại trừ ở migration chống hai lượt ACTIVE chồng giờ trên một phòng.
+model RoomBooking {
+  id        String       @id @default(uuid()) @db.Uuid
+  requestId String       @unique @map("request_id") @db.Uuid
+  request   UsageRequest @relation(fields: [requestId], references: [id])
+  roomId    String       @map("room_id") @db.Uuid
+  room      Room         @relation(fields: [roomId], references: [id])
+  startAt   DateTime     @map("start_at") @db.Timestamptz
+  endAt     DateTime     @map("end_at") @db.Timestamptz
+  status    String       @db.VarChar(20)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("room_booking")
 }
