@@ -1,57 +1,51 @@
 # Quy trình làm việc nhóm
 
-Tài liệu này quy định cách đặt tên nhánh, viết commit, mở pull request (PR) và gộp mã vào `staging`, rồi đưa lên `main`. Cả nhóm làm theo cùng một quy trình để lịch sử mã nguồn dễ đọc và hai nhánh chính luôn chạy được.
+Tài liệu này quy định cách đặt tên nhánh, viết commit, mở pull request (PR) và gộp mã từ nhánh cá nhân vào `staging`, rồi đưa lên `main`. Cả nhóm làm theo cùng một quy trình để lịch sử mã nguồn dễ đọc và hai nhánh chính luôn chạy được.
 
 ## 1. Nguyên tắc chung
 
-Kho có hai nhánh dài hạn. Nhánh `staging` là nơi tích hợp: mọi công việc của thành viên được gộp vào đây qua PR để cả nhóm chạy thử chung. Nhánh `main` là bản đã được duyệt, chỉ người phụ trách (trưởng nhóm hoặc người được giao) đưa mã từ `staging` lên khi thấy ổn, thành viên không mở PR hay đẩy trực tiếp vào `main`. Cả hai nhánh luôn ở trạng thái build và chạy được.
+Kho có hai nhánh dài hạn và ba nhánh cá nhân. Nhánh `staging` là nơi tích hợp: công việc của thành viên được gộp vào đây qua PR để cả nhóm chạy thử chung. Nhánh `main` là bản đã được duyệt, chỉ người phụ trách (trưởng nhóm hoặc người được giao) đưa mã từ `staging` lên khi thấy ổn, thành viên không mở PR hay đẩy trực tiếp vào `main`. Cả hai nhánh luôn ở trạng thái build và chạy được.
 
-Mọi thay đổi đi qua một PR, phải có kết quả kiểm tra tự động đạt và được người phụ trách duyệt trước khi gộp. Không dùng nhánh cá nhân sống lâu như `hung`, `huy`, `khoa`. Mỗi gói việc dùng một nhánh riêng tạo từ `staging`, gộp xong thì xóa.
+Mỗi thành viên làm việc trên đúng một nhánh của mình và không ai đẩy lên nhánh của người khác. Mọi thay đổi đi vào `staging` qua một PR, phải có kết quả kiểm tra tự động đạt và được review trước khi gộp.
 
-## 2. Đặt tên nhánh
+## 2. Nhánh cá nhân
 
-Mỗi nhánh ứng với một gói việc, không phải một PB. Gói việc là nhóm các PB liên quan do cùng một người làm trong cùng một đợt, ví dụ Quản lý phòng, thiết bị và loại phòng (PB-03, PB-04, PB-05) là một gói. Mỗi người chỉ giữ tối đa một nhánh đang làm tại một thời điểm, gộp vào `staging` xong mới tạo nhánh tiếp theo. Cách này giữ số nhánh ít và số PB cần review vừa phải, trong khi lịch sử vẫn đọc được vì mỗi commit và mỗi dòng trong mô tả PR ghi rõ mã PB.
+Mỗi người một nhánh, đặt theo tên, tạo từ `staging` và giữ lâu dài, không xóa sau khi gộp.
 
-Tên nhánh có dạng `loai/ten-goi-viec`, viết thường, không dấu, nối các từ bằng dấu gạch ngang. Mã PB đi vào tiêu đề commit và mô tả PR chứ không đặt trong tên nhánh. Sửa nhỏ hoặc sửa tài liệu cùng phạm vi thì làm tiếp trên nhánh đang có, không mở nhánh mới.
-
-| Loại | Dùng khi | Ví dụ |
+| Nhánh | Thành viên | Phần việc chính |
 |---|---|---|
-| feat | Thêm chức năng | feat/danh-muc-phong-thiet-bi |
-| fix | Sửa lỗi | fix/dang-nhap-het-han-token |
-| docs | Chỉ sửa tài liệu | docs/cap-nhat-erd |
-| test | Thêm hoặc sửa kiểm thử | test/kiem-tra-trung-lich |
-| refactor | Tổ chức lại mã, không đổi hành vi | refactor/tach-module-auth |
-| chore | Cấu hình, thư viện, CI | chore/nang-cap-prisma |
+| Hung | Lưu Văn Hưng | Backend, cơ sở dữ liệu, DevOps, nghiệp vụ |
+| Khoa | Trần Đăng Khoa | Frontend |
+| Huy | Nguyễn Gia Huy | Tài liệu, kiểm thử |
 
-Không đặt tên nhánh trùng đầu với một nhánh khác theo kiểu `feat` và `feat/abc`, vì Git không cho tạo thư mục tên đó khi đã có nhánh cùng tên.
+Chức năng nào thuộc phần việc của ai thì người đó làm trên nhánh của mình và ghi mã PB vào tiêu đề commit và mô tả PR. Nhánh sống lâu dễ lệch khỏi `staging` nên cần giữ cho mới (xem mục 4). Mỗi lần xong một phần dùng được (một chức năng, một màn hình, một đợt sửa) thì mở PR vào `staging`, không dồn nhiều ngày thành một PR lớn.
 
 ## 3. Quy ước commit
 
-Thông điệp commit viết tiếng Việt theo dạng `loai(pham-vi): mô tả ngắn`, với `loai` lấy từ bảng ở mục 2 và `pham-vi` là `api`, `web`, `db`, `ci`, `auth`... Mô tả viết ở thì hiện tại, không kết thúc bằng dấu chấm, tối đa khoảng 72 ký tự. Phần thân commit (nếu cần) giải thích lý do thay đổi.
+Thông điệp commit viết tiếng Việt theo dạng `loai(pham-vi): mô tả ngắn`, với `loai` là một trong `feat`, `fix`, `docs`, `test`, `refactor`, `chore` và `pham-vi` là `api`, `web`, `db`, `ci`, `auth`... Mô tả viết ở thì hiện tại, không kết thúc bằng dấu chấm, tối đa khoảng 72 ký tự. Phần thân commit (nếu cần) giải thích lý do thay đổi.
 
 Mỗi commit nên là một thay đổi trọn vẹn, ví dụ migration và model đi cùng nhau, kiểm thử đi cùng chức năng. Không đưa mật khẩu, khóa bí mật hay tệp `.env` vào commit.
 
 Commit và mô tả PR chỉ ghi tên các thành viên nhóm. Không thêm dòng `Co-Authored-By`, dòng "Generated with", hay bất kỳ ghi công nào cho công cụ hỗ trợ.
 
-## 4. Mở pull request
+## 4. Làm việc và mở pull request
 
-Tạo nhánh từ `staging` mới nhất, làm việc, rồi đẩy lên và mở PR vào `staging`.
+Trước khi bắt đầu mỗi đợt việc, cập nhật nhánh của mình từ `staging` (ví dụ nhánh `Khoa`).
 
 ```
-git switch staging
-git pull
-git switch -c feat/pb-03-quan-ly-phong
+git switch Khoa
+git pull origin staging
 ```
 
-Tiêu đề PR theo cùng dạng với commit, ví dụ `feat: quản lý phòng, thiết bị, loại phòng (PB-03, PB-04, PB-05)`. Phần mô tả điền theo mẫu có sẵn trong `.github/pull_request_template.md`, gồm mục tiêu, thay đổi chính, cách kiểm tra, ảnh chụp màn hình khi đổi giao diện, và ghi chú cho người review. Ghi mã công việc Jira liên quan, ví dụ SCRUM-8.
+Làm việc, commit nhỏ, đẩy lên rồi mở PR từ nhánh của mình vào `staging`. Tiêu đề PR theo cùng dạng với commit, ví dụ `feat(web): tra cứu phòng trống (PB-06)`. Phần mô tả điền theo mẫu trong `.github/pull_request_template.md`, gồm mục tiêu, thay đổi chính, cách kiểm tra, ảnh chụp màn hình khi đổi giao diện, và ghi chú cho người review. Ghi mã công việc Jira liên quan, ví dụ SCRUM-11.
 
-PR vừa đủ để người khác đọc xong trong khoảng 30 phút. Gói việc lớn thì mở PR theo từng mốc nhỏ trên cùng nhánh rồi tiếp tục làm, hoặc tách theo lớp (cơ sở dữ liệu, API, giao diện), mỗi PR vào `staging` ít nhất sau mỗi vài ngày để nhánh không sống quá lâu.
+Sau khi PR được gộp, kéo `staging` về nhánh của mình ngay (`git pull origin staging`). Việc gộp dùng merge commit nên bước này chỉ là tua tới, không sinh xung đột. Nếu có người khác gộp vào `staging` trong lúc bạn đang làm, cũng chạy lệnh này để cập nhật trước khi mở PR tiếp.
 
 ## 5. Review và gộp
 
 Sau khi mở PR, hệ thống tự chạy hai kiểm tra: kiểm thử backend và build frontend. PR chỉ được gộp khi cả hai đạt. Người review đọc theo các hướng sau: đúng yêu cầu trong Product Backlog, có kiểm thử cho nhánh xử lý mới, kiểm tra dữ liệu đầu vào và phân quyền ở phía máy chủ, migration không sửa lại migration đã gộp, và tài liệu (README, SRS, API Contract, ERD) được cập nhật nếu hành vi thay đổi.
 
-Góp ý được xử lý bằng commit mới trên cùng nhánh, không mở PR khác. Khi mọi góp ý đã xong, người phụ trách gộp bằng **Squash and merge** để mỗi PR thành một commit trên `staging`, tiêu đề commit lấy từ tiêu đề PR. Gộp xong thì xóa nhánh nguồn.
+Góp ý được xử lý bằng commit mới trên cùng nhánh, không mở PR khác. Việc gộp dùng **Create a merge commit** để giữ nguyên từng commit nhỏ của người làm và giữ nhánh cá nhân đồng bộ với `staging`. Không xóa nhánh cá nhân sau khi gộp, không dùng Squash hay Rebase cho PR từ nhánh cá nhân.
 
 ### 5.1. Claude review tự động
 
@@ -63,7 +57,7 @@ Mỗi PR vào `staging` được Claude review tự động (workflow `.github/w
 | SUGGEST | claude:suggest | Code đúng nhưng có cách tốt hơn: thư viện hay hơn, tối ưu, nâng cao, dễ bảo trì hơn | Tự gộp, gợi ý không bắt buộc |
 | OK | claude:ok | Không có gì cần nói thêm | Tự gộp |
 
-Mỗi lỗi hoặc gợi ý ghi tệp và dòng, vấn đề là gì, vì sao, và cách sửa. Khi BLOCKED, sửa rồi đẩy commit mới lên cùng nhánh, Claude review lại và cập nhật chính bình luận đó. Việc tự gộp chỉ xảy ra khi CI cũng xanh và dùng Squash vào `staging`. Claude không bao giờ gộp vào `main`.
+Mỗi lỗi hoặc gợi ý ghi tệp và dòng, vấn đề là gì, vì sao, và cách sửa. Khi BLOCKED, sửa rồi đẩy commit mới lên cùng nhánh, Claude review lại và cập nhật chính bình luận đó. Việc tự gộp chỉ xảy ra khi CI cũng xanh, dùng merge commit vào `staging` và giữ lại nhánh cá nhân. Claude không bao giờ gộp vào `main`.
 
 Muốn sửa gợi ý trước khi gộp, gắn nhãn `no-auto-merge` ngay khi mở PR. Claude vẫn review nhưng không gộp. Sửa xong thì gỡ nhãn, đóng rồi mở lại PR (hoặc đẩy commit mới), Claude review lại và tự gộp.
 
