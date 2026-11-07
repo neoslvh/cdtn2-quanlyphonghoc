@@ -72,6 +72,8 @@ npm run dev
 
 Mở http://localhost:5173. Vite tự chuyển các lời gọi `/api` sang backend ở cổng 3000.
 
+Các màn tra cứu phòng, phiếu đề xuất và lịch học chính khóa gọi các API chưa có ở backend nên mặc định chạy trên dữ liệu giả trong `frontend/src/mock`, theo đúng API Contract (đăng nhập và tài khoản vẫn gọi API thật). Dữ liệu giả mất khi tải lại trang. Khi backend làm xong các API đó, đặt biến `VITE_API_MOCK=false` lúc build hoặc chạy để màn hình dùng API thật mà không phải sửa mã. Muốn Vite chuyển `/api` tới một máy chủ khác cổng 3000, đặt biến `API_TARGET`.
+
 ## 4. Kiểm thử
 
 ```
