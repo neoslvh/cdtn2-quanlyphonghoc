@@ -33,15 +33,22 @@ function fakeDb() {
     },
     findUserByEmail: async (email) => users.find((u) => u.email === email) || null,
     // phòng
-    listRooms: async ({ campus, roomType, status, q }) =>
-      rooms
+    listRooms: async ({ campus, roomType, status, q, page, pageSize }) => {
+      const all = rooms
         .map(flat)
         .filter((r) => (!campus || r.campus === campus) && (!roomType || r.roomType === roomType) && (!status || r.status === status))
         .filter((r) => !q || `${r.code} ${r.name}`.toLowerCase().includes(q.toLowerCase()))
-        .sort((a, b) => a.code.localeCompare(b.code)),
+        .sort((a, b) => a.code.localeCompare(b.code));
+      return { items: page ? all.slice((page - 1) * pageSize, page * pageSize) : all, total: all.length };
+    },
     findRoom: async (rid) => (rooms.find((r) => r.id === rid) ? flat(rooms.find((r) => r.id === rid)) : null),
     findRoomByCode: async (code) => rooms.find((r) => r.code === code) || null,
     findBuildingByCode: async (code) => buildings.find((b) => b.code === code) || null,
+    setBuildingCampus: async (bid, campus) => {
+      const b = buildings.find((x) => x.id === bid);
+      b.campus = campus;
+      return b;
+    },
     createBuilding: async (data) => {
       const b = { id: id('b'), ...data };
       buildings.push(b);

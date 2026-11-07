@@ -18,6 +18,24 @@ jobs:
   backend:
     name: Backend (kiểm thử API)
     runs-on: ubuntu-latest
+    # PostgreSQL thật cho test tích hợp: migration, ràng buộc cơ sở dữ liệu và truy cập đồng thời.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: qlphong
+          POSTGRES_USER: qlphong
+          POSTGRES_PASSWORD: qlphong_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U qlphong -d qlphong"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://qlphong:qlphong_dev@localhost:5432/qlphong
+      RUN_PG_TESTS: '1'
     defaults:
       run:
         working-directory: backend
@@ -30,6 +48,8 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
       - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - run: node prisma/seed.js
       - run: npm test
 
   frontend:

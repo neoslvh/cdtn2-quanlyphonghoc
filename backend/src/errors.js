@@ -5,4 +5,7 @@ class ApiError extends Error {
   }
 }
 
-module.exports = { ApiError };
+// Lỗi vi phạm ràng buộc unique của Prisma (P2002), dùng để chuyển thành lỗi nghiệp vụ khi hai yêu cầu chạy cùng lúc.
+const isUniqueViolation = (err) => Boolean(err) && err.code === 'P2002';
+
+module.exports = { ApiError, isUniqueViolation };

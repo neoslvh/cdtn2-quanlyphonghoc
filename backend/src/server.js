@@ -1,6 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const { createApp } = require('./app');
-const { createDb } = require('./prismaDb');
+const { createDb } = require('./repositories');
 
 const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret || jwtSecret.length < 16) {
