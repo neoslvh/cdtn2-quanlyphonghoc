@@ -35,6 +35,15 @@ async function main() {
     const found = await prisma.organization.findFirst({ where: { name: o.name } });
     orgIds[o.name] = (found || (await prisma.organization.create({ data: o }))).id;
   }
+  // Luồng mặc định: Phòng Đào tạo duyệt trước, sau đó Cơ sở vật chất xác nhận phòng.
+  await prisma.approvalRule.upsert({
+    where: { code: 'STANDARD_ROOM_REQUEST' },
+    update: {},
+    create: {
+      code: 'STANDARD_ROOM_REQUEST', name: 'Duyệt yêu cầu sử dụng phòng tiêu chuẩn', priority: 100,
+      conditions: { steps: [{ organizationId: orgIds['Phòng Đào tạo'] }, { organizationId: orgIds['Phòng Quản trị cơ sở vật chất'] }] },
+    },
+  });
   // Môi trường production không có mật khẩu mặc định: thiếu SEED_PASSWORD thì không tạo tài khoản mẫu.
   const seedPassword = process.env.SEED_PASSWORD || (process.env.NODE_ENV === 'production' ? null : 'Demo@12345');
   let seeded = 0;

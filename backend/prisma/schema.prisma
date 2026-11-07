@@ -9,40 +9,202 @@ datasource db {
 
 // Bảng tối thiểu để kiểm tra kết nối. ERD đầy đủ làm ở Buổi 5.
 model Room {
-  id       Int    @id @default(autoincrement())
-  code     String @unique
-  building String
-  capacity Int
+  id          Int             @id @default(autoincrement())
+  code        String          @unique
+  building    String
+  buildingId  String?         @map("building_id") @db.Uuid
+  buildingRef Building?       @relation(fields: [buildingId], references: [id])
+  name        String          @default("")
+  roomType    String          @default("CLASSROOM") @map("room_type")
+  capacity    Int
+  status      String          @default("ACTIVE")
+  bookings    RoomBooking[]
+  schedules   ClassSchedule[]
+  requests    UsageRequest[]
+  equipment   Equipment[]
 
   @@map("rooms")
 }
 
+model Building {
+  id     String @id @default(uuid()) @db.Uuid
+  code   String @unique @db.VarChar(30)
+  name   String @db.VarChar(150)
+  campus String @db.VarChar(120)
+  rooms  Room[]
+
+  @@map("building")
+}
+
+model Equipment {
+  id            String             @id @default(uuid()) @db.Uuid
+  roomId        Int?               @map("room_id")
+  room          Room?              @relation(fields: [roomId], references: [id])
+  assetCode     String             @unique @map("asset_code")
+  name          String
+  equipmentType String             @map("equipment_type")
+  status        String             @default("ACTIVE")
+  requests      RequestEquipment[]
+
+  @@map("equipment")
+}
+
+model UsageRequest {
+  id               String             @id @default(uuid()) @db.Uuid
+  requesterId      String             @map("requester_id") @db.Uuid
+  requester        User               @relation("requester", fields: [requesterId], references: [id])
+  organizationId   String             @map("organization_id") @db.Uuid
+  organization     Organization       @relation(fields: [organizationId], references: [id])
+  roomId           Int                @map("room_id")
+  room             Room               @relation(fields: [roomId], references: [id])
+  purpose          String
+  startAt          DateTime           @map("start_at") @db.Timestamptz
+  endAt            DateTime           @map("end_at") @db.Timestamptz
+  participantCount Int                @map("participant_count")
+  otherProposal    String?            @map("other_proposal")
+  status           String             @default("DRAFT")
+  submittedAt      DateTime?          @map("submitted_at") @db.Timestamptz
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  equipment        RequestEquipment[]
+  approvalSteps    ApprovalStep[]
+
+  @@index([roomId, startAt, endAt])
+  @@map("usage_request")
+}
+
+model ApprovalStep {
+  id             String       @id @default(uuid()) @db.Uuid
+  requestId      String       @map("request_id") @db.Uuid
+  request        UsageRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  stepNumber     Int          @map("step_number")
+  organizationId String?      @map("organization_id") @db.Uuid
+  status         String       @default("PENDING")
+  approverUserId String?      @map("approver_user_id") @db.Uuid
+  decisionAt     DateTime?    @map("decision_at") @db.Timestamptz
+  reason         String?
+
+  @@unique([requestId, stepNumber])
+  @@map("approval_step")
+}
+
+model ApprovalRule {
+  id         String  @id @default(uuid()) @db.Uuid
+  code       String  @unique
+  name       String
+  priority   Int     @default(0)
+  active     Boolean @default(true)
+  conditions Json    @default("{}")
+
+  @@map("approval_rule")
+}
+
+model ImportBatch {
+  id        String          @id @default(uuid()) @db.Uuid
+  semester  String
+  mode      String
+  createdBy String          @map("created_by") @db.Uuid
+  creator   User            @relation("ImportBatchCreator", fields: [createdBy], references: [id])
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  status    String          @default("PREVIEW")
+  schedules ClassSchedule[]
+
+  @@map("import_batch")
+}
+
+model PeriodSlot {
+  id         String   @id @default(uuid()) @db.Uuid
+  slotNumber Int      @unique @map("slot_number")
+  startTime  DateTime @map("start_time") @db.Time(0)
+  endTime    DateTime @map("end_time") @db.Time(0)
+
+  @@map("period_slot")
+}
+
+model RequestEquipment {
+  requestId   String       @map("request_id") @db.Uuid
+  request     UsageRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  equipmentId String       @map("equipment_id") @db.Uuid
+  equipment   Equipment    @relation(fields: [equipmentId], references: [id])
+  quantity    Int          @default(1)
+
+  @@id([requestId, equipmentId])
+  @@map("request_equipment")
+}
+
+model RoomBooking {
+  id      String   @id @default(uuid()) @db.Uuid
+  roomId  Int      @map("room_id")
+  room    Room     @relation(fields: [roomId], references: [id])
+  startAt DateTime @map("start_at") @db.Timestamptz
+  endAt   DateTime @map("end_at") @db.Timestamptz
+  status  String   @default("ACTIVE")
+
+  @@index([roomId, startAt, endAt])
+  @@map("room_booking")
+}
+
+model ClassSchedule {
+  id            String       @id @default(uuid()) @db.Uuid
+  roomId        Int          @map("room_id")
+  room          Room         @relation(fields: [roomId], references: [id])
+  courseCode    String       @map("course_code")
+  classCode     String       @map("class_code")
+  startAt       DateTime     @map("start_at") @db.Timestamptz
+  endAt         DateTime     @map("end_at") @db.Timestamptz
+  status        String       @default("ACTIVE")
+  semester      String       @default("")
+  courseName    String       @default("") @map("course_name")
+  importBatchId String?      @map("import_batch_id") @db.Uuid
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id])
+  createdBy     String?      @map("created_by") @db.Uuid
+
+  @@index([roomId, startAt, endAt])
+  @@map("class_schedule")
+}
+
 // Đơn vị theo ERD v4.1: APPROVAL_UNIT, FACILITY_UNIT hoặc REQUESTER_UNIT.
 model Organization {
-  id     String  @id @default(uuid()) @db.Uuid
-  name   String  @db.VarChar(150)
-  type   String  @db.VarChar(30)
-  active Boolean @default(true)
-  users  User[]
+  id       String         @id @default(uuid()) @db.Uuid
+  name     String         @db.VarChar(150)
+  type     String         @db.VarChar(30)
+  active   Boolean        @default(true)
+  users    User[]
+  requests UsageRequest[]
 
   @@map("organization")
 }
 
 // role: REQUESTER, APPROVER, FACILITY_STAFF, ADMIN. status: PENDING (chờ duyệt), ACTIVE hoặc LOCKED.
 model User {
-  id                 String       @id @default(uuid()) @db.Uuid
-  organizationId     String       @map("organization_id") @db.Uuid
-  organization       Organization @relation(fields: [organizationId], references: [id])
-  fullName           String       @map("full_name") @db.VarChar(150)
-  email              String       @unique @db.VarChar(255)
-  passwordHash       String       @map("password_hash") @db.VarChar(255)
-  role               String       @db.VarChar(30)
-  status             String       @db.VarChar(20)
+  id                 String         @id @default(uuid()) @db.Uuid
+  organizationId     String         @map("organization_id") @db.Uuid
+  organization       Organization   @relation(fields: [organizationId], references: [id])
+  fullName           String         @map("full_name") @db.VarChar(150)
+  email              String         @unique @db.VarChar(255)
+  passwordHash       String         @map("password_hash") @db.VarChar(255)
+  role               String         @db.VarChar(30)
+  status             String         @db.VarChar(20)
   // Tài khoản do admin cấp hoặc đặt lại mật khẩu thì phải đổi mật khẩu ở lần đăng nhập đầu.
-  mustChangePassword Boolean      @default(false) @map("must_change_password")
+  mustChangePassword Boolean        @default(false) @map("must_change_password")
   // Token cấp trước mốc này bị từ chối, để đổi hoặc đặt lại mật khẩu thu hồi các phiên cũ.
-  passwordChangedAt  DateTime?    @map("password_changed_at") @db.Timestamptz
-  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  passwordChangedAt  DateTime?      @map("password_changed_at") @db.Timestamptz
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  requests           UsageRequest[] @relation("requester")
+  sessions           AuthSession[]
+  importBatches      ImportBatch[]  @relation("ImportBatchCreator")
 
   @@map("user")
+}
+
+model AuthSession {
+  id            String    @id @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt     DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt     DateTime? @map("revoked_at") @db.Timestamptz
+  revokedReason String?   @map("revoked_reason")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([userId, expiresAt])
+  @@map("auth_session")
 }
