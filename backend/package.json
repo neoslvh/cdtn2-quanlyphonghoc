@@ -15,8 +15,10 @@
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
     "express": "^5.3.0",
-    "jsonwebtoken": "^9.0.3"
+    "jsonwebtoken": "^9.0.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@emnapi/core": "^1.11.3",
