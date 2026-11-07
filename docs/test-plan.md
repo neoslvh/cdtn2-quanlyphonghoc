@@ -17,7 +17,7 @@ Chủ ý không kiểm, kèm lý do:
 - Hiệu năng dưới tải (NFR-03): chưa đo, chỉ có chỉ mục GiST cho truy vấn trùng lịch.
 - Đăng nhập một lần bằng tài khoản trường: chưa tích hợp được.
 
-## 2. Bốn tầng kiểm thử và cách chạy
+## 2. Các tầng kiểm thử và cách chạy
 
 | Tầng | Vị trí | Số ca | Dữ liệu | Cách chạy |
 |---|---|---|---|---|

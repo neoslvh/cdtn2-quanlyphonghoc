@@ -41,7 +41,7 @@ CI của pull request chạy các tầng unit, API, tích hợp, giao diện và
 
 ## 4. Bug phát hiện và đã sửa
 
-Xem `docs/bug-log.md`. Ba bug có commit sửa riêng; một lỗi hết thời gian chờ giao dịch (P2028) do test đua phát hiện đã được sửa cùng PR #17.
+Xem `docs/bug-log.md`: ba bug, mỗi bug một commit sửa riêng. Ngoài ra test đua trên PostgreSQL thật phát hiện lỗi hết thời gian chờ giao dịch (P2028) khi năm yêu cầu cùng xác nhận một lần nhập; lỗi được sửa ngay trong PR #17 trước khi gộp, không có commit sửa riêng nên không ghi vào bug log.
 
 ## 5. Hạn chế đã biết
 
