@@ -1,10 +1,19 @@
 import dayjs from 'dayjs';
-import { describe, expect, test } from 'vitest';
-import { classSessions } from './db';
-import { mockCall } from './index';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 // Kiểm tra dữ liệu giả cư xử đúng API Contract: mã lỗi, thứ tự kiểm tra, xung đột phòng, nhập thời khóa biểu.
-const call = (method, path, body) => mockCall(method, path, body);
+// Mỗi test nạp lại dữ liệu giả và cố định ngày hiện tại (thứ hai 02/11/2026), nên không phụ thuộc thứ tự chạy hay ngày chạy test.
+let call;
+let classSessions;
+beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-11-02T08:00:00+07:00'));
+  vi.resetModules();
+  ({ classSessions } = await import('./db'));
+  const { mockCall } = await import('./index');
+  call = (method, path, body) => mockCall(method, path, body);
+});
+afterEach(() => vi.useRealTimers());
 const fails = async (promise, status, code) => {
   const err = await promise.then(() => null, (e) => e);
   expect(err, `kỳ vọng lỗi ${code}`).not.toBeNull();
