@@ -1,5 +1,6 @@
 const express = require('express');
-const { authRoutes, ApiError } = require('./auth');
+const { authRoutes } = require('./auth');
+const { ApiError } = require('./errors');
 
 // db được truyền vào để kiểm thử được lớp HTTP mà không cần cơ sở dữ liệu thật.
 function createApp({ db, jwtSecret = 'khoa-bi-mat-chi-dung-khi-kiem-thu', bcryptRounds, limiter, allowRegistration }) {
