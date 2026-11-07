@@ -23,6 +23,9 @@ services:
       PORT: 3000
       JWT_SECRET: khoa-jwt-chi-dung-khi-phat-trien-va-demo
       SEED_PASSWORD: Demo@12345
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -40,3 +43,4 @@ services:
 
 volumes:
   db-data:
+  uploads:

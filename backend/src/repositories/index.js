@@ -1,4 +1,5 @@
 const { createAvailabilityRepo } = require('./availabilityRepo');
+const { createRequestRepo } = require('./requestRepo');
 const { createRoomRepo } = require('./roomRepo');
 const { createUserRepo } = require('./userRepo');
 
@@ -9,6 +10,7 @@ function createDb(prisma) {
     ...createUserRepo(prisma),
     ...createRoomRepo(prisma),
     ...createAvailabilityRepo(prisma),
+    ...createRequestRepo(prisma),
   };
 }
 
