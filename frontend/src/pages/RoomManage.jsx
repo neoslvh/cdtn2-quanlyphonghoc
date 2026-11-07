@@ -94,8 +94,8 @@ export default function RoomManage() {
       <Modal title={editing?.id ? `Sửa phòng ${editing.code}` : 'Thêm phòng'} open={Boolean(editing)} onCancel={() => setEditing(null)} onOk={() => form.submit()} okText="Lưu" cancelText="Hủy" confirmLoading={saving} destroyOnHidden>
         <Form form={form} layout="vertical" requiredMark={false} onFinish={save}>
           <div className="form-row">
-            <Form.Item label="Mã phòng" name="code" rules={[{ required: true, message: 'Nhập mã phòng' }, { max: 20, message: 'Tối đa 20 ký tự' }]}>
-              <Input placeholder="A.10.01" />
+            <Form.Item label="Mã phòng" name="code" rules={[{ required: true, message: 'Nhập mã phòng' }, { max: 20, message: 'Tối đa 20 ký tự' }]} extra={editing?.id ? 'Không đổi mã phòng đã có lịch sử dụng.' : null}>
+              <Input placeholder="A.10.01" disabled={Boolean(editing?.id)} />
             </Form.Item>
             <Form.Item label="Sức chứa" name="capacity" rules={[{ required: true, message: 'Nhập sức chứa' }]}>
               <InputNumber min={1} max={2000} style={{ width: '100%' }} />

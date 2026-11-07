@@ -142,6 +142,11 @@ describe('quản lý phòng', () => {
     expect(err.details.map((d) => d.field).sort()).toEqual(['capacity', 'code', 'name']);
   });
 
+  test('cơ sở lạ, mã quá dài, sức chứa quá lớn bị từ chối giống form', async () => {
+    const err = await fails(call('POST', '/rooms', { ...room, code: 'X'.repeat(21), campus: 'Cơ sở 9', capacity: 5000 }), 400, 'VALIDATION_ERROR');
+    expect(err.details.map((d) => d.field).sort()).toEqual(['campus', 'capacity', 'code']);
+  });
+
   test('lọc theo trạng thái và từ khóa, có phân trang', async () => {
     const maint = await call('GET', '/rooms?status=MAINTENANCE&page=1&pageSize=5');
     expect(maint.items.map((r) => r.code)).toEqual(['B.06.02']);
