@@ -4,7 +4,7 @@ name: Claude review
 #   BLOCKED  có lỗi thật, chặn gộp, kèm giải thích và hướng sửa.
 #   SUGGEST  không có lỗi, chỉ có gợi ý tối ưu hoặc nâng cao. Không chặn gộp.
 #   OK       không có gì cần nói thêm.
-# BLOCKED thì dừng lại. SUGGEST và OK thì tự gộp (squash) sau khi CI xanh.
+# BLOCKED thì dừng lại. SUGGEST và OK thì tự gộp vào staging (merge commit, giữ nguyên các commit và giữ lại nhánh cá nhân) sau khi CI xanh.
 # Dán nhãn no-auto-merge lên PR để Claude chỉ review, không tự gộp (dùng khi muốn sửa gợi ý trước).
 # Cần secret ANTHROPIC_API_KEY (Settings > Secrets and variables > Actions). Thiếu secret thì job tự bỏ qua.
 on:
@@ -113,11 +113,11 @@ jobs:
               sleep 15
             done
             if [ "$CI" = passed ]; then
-              if ERR=$(gh pr merge "$PR" --squash --delete-branch --subject "$TITLE (#$PR)" 2>&1); then
+              if ERR=$(gh pr merge "$PR" --merge --subject "Merge: $TITLE (#$PR)" 2>&1); then
                 if [ "$STATUS" = SUGGEST ]; then
-                  OUTCOME="**Đã tự gộp vào \`staging\`** (squash). Gợi ý bên dưới không bắt buộc, có thể làm ở PR sau."
+                  OUTCOME="**Đã tự gộp vào \`staging\`** (merge commit, nhánh của bạn được giữ lại). Gợi ý bên dưới không bắt buộc, có thể làm ở PR sau."
                 else
-                  OUTCOME="**Đã tự gộp vào \`staging\`** (squash)."
+                  OUTCOME="**Đã tự gộp vào \`staging\`** (merge commit, nhánh của bạn được giữ lại). Nhớ cập nhật nhánh: \`git pull origin staging\`."
                 fi
               else
                 OUTCOME="Review đạt, CI xanh nhưng chưa gộp được: \`$ERR\`. Người phụ trách gộp thủ công."
