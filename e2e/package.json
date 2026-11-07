@@ -1,0 +1,13 @@
+{
+  "name": "qlphong-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kiểm thử tự động giao diện bằng Playwright, chạy trên hệ thống dựng bằng docker compose",
+  "scripts": {
+    "test": "playwright test",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
+}
