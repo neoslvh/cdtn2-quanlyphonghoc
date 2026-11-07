@@ -1,20 +1,13 @@
-const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { randomUUID } = require('crypto');
 const { Router } = require('express');
+const { ApiError } = require('./errors/ApiError');
+const { createLoginLimiter, generateTemporaryPassword } = require('./services/auth.service');
+const { createAuthMiddleware } = require('./middleware/auth');
+const { ROLES, STATUSES, PASSWORD_MESSAGE, validFullName, validEmail, validPassword, failValidation } = require('./validators/auth.validator');
 
 const TOKEN_TTL = '8h';
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ROLES = ['REQUESTER', 'APPROVER', 'FACILITY_STAFF', 'ADMIN'];
-const STATUSES = ['PENDING', 'ACTIVE', 'LOCKED'];
-
-class ApiError extends Error {
-  constructor(status, code, message, details) {
-    super(message);
-    Object.assign(this, { status, code, details });
-  }
-}
-
 const toUser = (u) => ({
   id: u.id,
   fullName: u.fullName,
@@ -25,44 +18,7 @@ const toUser = (u) => ({
   organization: u.organization && { id: u.organization.id, name: u.organization.name, type: u.organization.type },
 });
 
-const validFullName = (v) => typeof v === 'string' && v.trim().length >= 2 && v.trim().length <= 150;
-const validEmail = (v) => typeof v === 'string' && EMAIL_RE.test(v.trim()) && v.length <= 255;
-// bcrypt chỉ đọc 72 byte đầu nên giới hạn theo byte, ký tự có dấu chiếm nhiều byte hơn.
-const validPassword = (v) => typeof v === 'string' && v.length >= 8 && Buffer.byteLength(v) <= 72 && /[A-Za-z]/.test(v) && /\d/.test(v);
-const PASSWORD_MSG = 'Mật khẩu từ 8 ký tự, tối đa 72 byte (ký tự có dấu tính nhiều byte), gồm cả chữ và số.';
 
-function fail(details) {
-  if (details.length) throw new ApiError(400, 'VALIDATION_ERROR', 'Dữ liệu không hợp lệ.', details);
-}
-
-// Mật khẩu tạm 12 ký tự, bỏ các ký tự dễ nhầm (0/O, 1/l/I), luôn có cả chữ và số để qua được quy tắc mật khẩu.
-function generateTempPassword() {
-  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz';
-  const digits = '23456789';
-  const pick = (set) => set[crypto.randomInt(set.length)];
-  const chars = [pick(letters), pick(digits), ...Array.from({ length: 10 }, () => pick(letters + digits))];
-  for (let i = chars.length - 1; i > 0; i--) {
-    const j = crypto.randomInt(i + 1);
-    [chars[i], chars[j]] = [chars[j], chars[i]];
-  }
-  return chars.join('');
-}
-
-// Giới hạn số lần đăng nhập sai theo email để chặn dò mật khẩu. Bộ nhớ tiến trình, đủ cho một máy chủ.
-// ponytail: dùng Redis hoặc bảng cơ sở dữ liệu khi chạy nhiều tiến trình.
-function createLoginLimiter({ max = 5, windowMs = 15 * 60 * 1000 } = {}) {
-  const fails = new Map();
-  const live = (key) => (fails.get(key) || []).filter((t) => Date.now() - t < windowMs);
-  return {
-    blocked: (key) => live(key).length >= max,
-    fail: (key) => {
-      // Dọn khóa đã hết hạn khi Map lớn, tránh phình bộ nhớ khi bị gửi nhiều email ngẫu nhiên.
-      if (fails.size > 1000) for (const k of fails.keys()) if (!live(k).length) fails.delete(k);
-      fails.set(key, [...live(key), Date.now()]);
-    },
-    reset: (key) => fails.delete(key),
-  };
-}
 
 // Băm của một chuỗi ngẫu nhiên, chỉ dùng để so khớp giả khi email không tồn tại.
 const DUMMY_HASH = bcrypt.hashSync('khong-ton-tai-' + Math.random(), 10);
@@ -70,39 +26,13 @@ const DUMMY_HASH = bcrypt.hashSync('khong-ton-tai-' + Math.random(), 10);
 function authRoutes({ db, jwtSecret, bcryptRounds = 10, limiter = createLoginLimiter(), allowRegistration = false }) {
   const router = Router();
   const hash = (p) => bcrypt.hash(p, bcryptRounds);
-  const signToken = (u) => jwt.sign({ sub: u.id, role: u.role, org: u.organizationId }, jwtSecret, { expiresIn: TOKEN_TTL });
-
-  // allowMustChange: cho phép tài khoản đang bị bắt đổi mật khẩu đi qua (chỉ me, logout, change-password).
-  const auth = (allowMustChange) => async (req, res, next) => {
-    try {
-      const m = /^Bearer (.+)$/.exec(req.headers.authorization || '');
-      if (!m) throw new ApiError(401, 'UNAUTHORIZED', 'Chưa đăng nhập.');
-      let payload;
-      try {
-        payload = jwt.verify(m[1], jwtSecret);
-      } catch {
-        throw new ApiError(401, 'UNAUTHORIZED', 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.');
-      }
-      // Đọc lại từ cơ sở dữ liệu để khóa tài khoản có hiệu lực ngay, không phải chờ token hết hạn.
-      const user = await db.findUserById(payload.sub);
-      if (!user || user.status !== 'ACTIVE') throw new ApiError(401, 'UNAUTHORIZED', 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.');
-      if (user.mustChangePassword && !allowMustChange) {
-        throw new ApiError(403, 'PASSWORD_CHANGE_REQUIRED', 'Bạn cần đổi mật khẩu trước khi sử dụng hệ thống.');
-      }
-      // iat tính bằng giây nên so theo giây; token cấp trước lần đổi mật khẩu gần nhất bị thu hồi.
-      if (user.passwordChangedAt && Math.floor(user.passwordChangedAt.getTime() / 1000) > payload.iat) {
-        throw new ApiError(401, 'UNAUTHORIZED', 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.');
-      }
-      req.user = user;
-      next();
-    } catch (err) {
-      next(err);
-    }
+  const signToken = async (u) => {
+    const jti = randomUUID();
+    await db.createSession({ id: jti, userId: u.id, expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000) });
+    return jwt.sign({ sub: u.id, role: u.role, org: u.organizationId, jti }, jwtSecret, { expiresIn: TOKEN_TTL });
   };
-  const requireAuth = auth(false);
-  const requireAuthAny = auth(true);
-  const requireRole = (...roles) => (req, res, next) =>
-    roles.includes(req.user.role) ? next() : next(new ApiError(403, 'FORBIDDEN', 'Bạn không có quyền thực hiện thao tác này.'));
+
+  const { requireAuth, requireAuthAny, requireRole } = createAuthMiddleware({ db, jwtSecret });
 
   router.get('/auth/config', (req, res) => res.json({ selfRegistration: allowRegistration }));
 
@@ -125,9 +55,9 @@ function authRoutes({ db, jwtSecret, bcryptRounds = 10, limiter = createLoginLim
       const details = [];
       if (!validFullName(fullName)) details.push({ field: 'fullName', message: 'Họ và tên từ 2 đến 150 ký tự.' });
       if (!validEmail(email)) details.push({ field: 'email', message: 'Email không đúng định dạng.' });
-      if (!validPassword(password)) details.push({ field: 'password', message: PASSWORD_MSG });
+      if (!validPassword(password)) details.push({ field: 'password', message: PASSWORD_MESSAGE });
       if (typeof organizationId !== 'string' || !organizationId) details.push({ field: 'organizationId', message: 'Vui lòng chọn đơn vị.' });
-      fail(details);
+      failValidation(details);
       const key = email.trim().toLowerCase();
       const org = await db.findOrganization(organizationId);
       if (!org || !org.active || org.type !== 'REQUESTER_UNIT') {
@@ -168,7 +98,7 @@ function authRoutes({ db, jwtSecret, bcryptRounds = 10, limiter = createLoginLim
       if (user.status === 'PENDING') throw new ApiError(403, 'ACCOUNT_PENDING', 'Tài khoản đang chờ quản trị viên duyệt.');
       if (user.status !== 'ACTIVE') throw new ApiError(403, 'ACCOUNT_LOCKED', 'Tài khoản đã bị khóa.');
       limiter.reset(key);
-      res.json({ token: signToken(user), user: toUser(user) });
+      res.json({ token: await signToken(user), user: toUser(user) });
     } catch (err) {
       next(err);
     }
@@ -176,8 +106,9 @@ function authRoutes({ db, jwtSecret, bcryptRounds = 10, limiter = createLoginLim
 
   router.get('/auth/me', requireAuthAny, (req, res) => res.json({ user: toUser(req.user) }));
 
-  // Đăng xuất: JWT không trạng thái nên máy khách tự xóa token. Ghi audit_log bổ sung khi có bảng (PB-21).
-  router.post('/auth/logout', requireAuthAny, (req, res) => res.status(204).end());
+  router.post('/auth/logout', requireAuthAny, async (req, res, next) => {
+    try { await db.revokeSession(req.auth.jti, 'LOGOUT'); res.status(204).end(); } catch (err) { next(err); }
+  });
 
   router.post('/auth/change-password', requireAuthAny, async (req, res, next) => {
     try {
@@ -190,13 +121,13 @@ function authRoutes({ db, jwtSecret, bcryptRounds = 10, limiter = createLoginLim
         throw new ApiError(400, 'VALIDATION_ERROR', 'Mật khẩu hiện tại không đúng.', [{ field: 'currentPassword', message: 'Mật khẩu hiện tại không đúng.' }]);
       }
       limiter.reset(key);
-      fail(validPassword(newPassword) ? [] : [{ field: 'newPassword', message: PASSWORD_MSG }]);
+      failValidation(validPassword(newPassword) ? [] : [{ field: 'newPassword', message: PASSWORD_MESSAGE }]);
       if (newPassword === currentPassword) {
         throw new ApiError(400, 'VALIDATION_ERROR', 'Mật khẩu mới phải khác mật khẩu hiện tại.', [{ field: 'newPassword', message: 'Mật khẩu mới phải khác mật khẩu hiện tại.' }]);
       }
+      await db.revokeUserSessions(req.user.id, 'PASSWORD_CHANGED');
       const user = await db.updateUser(req.user.id, { passwordHash: await hash(newPassword), mustChangePassword: false, passwordChangedAt: new Date() });
-      // Các token cũ bị thu hồi nên cấp token mới cho phiên hiện tại.
-      res.json({ user: toUser(user), token: signToken(user) });
+      res.json({ user: toUser(user), token: await signToken(user) });
     } catch (err) {
       next(err);
     }
@@ -222,14 +153,14 @@ function authRoutes({ db, jwtSecret, bcryptRounds = 10, limiter = createLoginLim
       if (!validEmail(email)) details.push({ field: 'email', message: 'Email không đúng định dạng.' });
       if (!ROLES.includes(role)) details.push({ field: 'role', message: 'Vai trò không hợp lệ.' });
       if (typeof organizationId !== 'string' || !organizationId) details.push({ field: 'organizationId', message: 'Vui lòng chọn đơn vị.' });
-      fail(details);
+      failValidation(details);
       const key = email.trim().toLowerCase();
       const org = await db.findOrganization(organizationId);
       if (!org || !org.active) {
         throw new ApiError(400, 'VALIDATION_ERROR', 'Đơn vị không hợp lệ.', [{ field: 'organizationId', message: 'Đơn vị không hợp lệ.' }]);
       }
       if (await db.findUserByEmail(key)) throw new ApiError(409, 'EMAIL_EXISTS', 'Email này đã có tài khoản.');
-      const temporaryPassword = generateTempPassword();
+      const temporaryPassword = generateTemporaryPassword();
       const user = await db.createUser({
         organizationId: org.id,
         fullName: fullName.trim(),
@@ -253,10 +184,10 @@ function authRoutes({ db, jwtSecret, bcryptRounds = 10, limiter = createLoginLim
       if (status !== undefined) STATUSES.includes(status) ? (data.status = status) : details.push({ field: 'status', message: 'Trạng thái không hợp lệ.' });
       if (role !== undefined) ROLES.includes(role) ? (data.role = role) : details.push({ field: 'role', message: 'Vai trò không hợp lệ.' });
       if (fullName !== undefined) validFullName(fullName) ? (data.fullName = fullName.trim()) : details.push({ field: 'fullName', message: 'Họ và tên từ 2 đến 150 ký tự.' });
-      fail(details);
+      failValidation(details);
       let temporaryPassword;
       if (resetPassword === true) {
-        temporaryPassword = generateTempPassword();
+        temporaryPassword = generateTemporaryPassword();
         data.passwordHash = await hash(temporaryPassword);
         data.mustChangePassword = true;
         data.passwordChangedAt = new Date();
@@ -267,6 +198,7 @@ function authRoutes({ db, jwtSecret, bcryptRounds = 10, limiter = createLoginLim
       }
       const user = await db.updateUser(req.params.id, data);
       if (!user) throw new ApiError(404, 'NOT_FOUND', 'Không tìm thấy tài khoản.');
+      if (data.passwordHash || data.status === 'LOCKED' || data.role) await db.revokeUserSessions(user.id, data.status === 'LOCKED' ? 'ACCOUNT_LOCKED' : 'ACCOUNT_CHANGED');
       res.json({ user: toUser(user), ...(temporaryPassword && { temporaryPassword }) });
     } catch (err) {
       next(err);
