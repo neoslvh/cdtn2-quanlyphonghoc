@@ -63,6 +63,20 @@ Muốn sửa gợi ý trước khi gộp, gắn nhãn `no-auto-merge` ngay khi m
 
 Chủ kho cần thêm secret `ANTHROPIC_API_KEY` ở Settings, Secrets and variables, Actions, và tài khoản API cần còn số dư. Chưa có secret thì workflow tự bỏ qua và PR review thủ công như bình thường.
 
+### 5.2. Jira tự cập nhật
+
+Trạng thái issue Jira được cập nhật tự động theo hoạt động trên GitHub (workflow `jira-sync.yml`). Để hệ thống nhận ra issue, ghi mã `SCRUM-n` hoặc mã backlog `PB-nn` vào tiêu đề hoặc mô tả PR, hoặc vào thông điệp commit.
+
+| Sự kiện | Issue chuyển sang |
+|---|---|
+| Đẩy commit có mã lên nhánh cá nhân | In Progress (nếu đang To Do) |
+| Mở PR, hoặc PR sẵn sàng review | In Review |
+| PR chuyển về nháp hoặc bị đóng không gộp | In Progress (nếu đang In Review) |
+| PR được gộp, mô tả có `Closes SCRUM-n` hoặc `Closes PB-nn` | Done |
+| PR được gộp, mô tả chỉ nhắc mã | In Progress |
+
+Trạng thái chỉ tiến lên, không bị lùi ngoài các trường hợp trên. Chỉ ghi `Closes` khi issue thật sự hoàn thành cả giao diện lẫn máy chủ. Chủ kho cần thêm ba secret `JIRA_BASE_URL` (ví dụ `https://cdtn2.atlassian.net`), `JIRA_USER_EMAIL` và `JIRA_API_TOKEN` (tạo ở id.atlassian.com, mục Security, API tokens). Chưa có secret thì workflow tự bỏ qua.
+
 ## 6. Đưa mã từ staging lên main
 
 Khi bản trên `staging` đã chạy thử ổn và đủ cho một mốc (cuối sprint hoặc trước buổi báo cáo), người phụ trách mở PR từ `staging` vào `main` hoặc tự gộp. Lần này dùng **Create a merge commit**, không dùng Squash, để `staging` và `main` không bị lệch lịch sử. Sau khi gộp, không cần xóa `staging`.
