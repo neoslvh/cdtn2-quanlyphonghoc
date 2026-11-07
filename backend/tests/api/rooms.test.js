@@ -7,7 +7,7 @@ const room = { code: 'A.10.01', name: 'Phòng A.10.01', campus: 'Cơ sở 1', ro
 function setup() {
   const db = fakeDb();
   const app = createApp({ db });
-  return { db, app, staff: login(db, 'FACILITY_STAFF', 'org-csvc').auth, requester: login(db, 'REQUESTER').auth, admin: login(db, 'ADMIN', 'org-csvc').auth };
+  return { db, app, staff: login(db, 'FACILITY_STAFF', '00000000-0000-4000-9000-0000000000a4').auth, requester: login(db, 'REQUESTER').auth, admin: login(db, 'ADMIN', '00000000-0000-4000-9000-0000000000a4').auth };
 }
 
 describe('phân quyền API phòng (PB-02, NFR-04)', () => {
