@@ -2,7 +2,9 @@ const express = require('express');
 const { authRoutes } = require('./auth');
 const { ApiError } = require('./errors');
 const { createGuards } = require('./guards');
+const { availabilityRoutes } = require('./routes/availability');
 const { roomRoutes } = require('./routes/rooms');
+const { createAvailabilityService } = require('./services/availabilityService');
 const { createRoomService } = require('./services/roomService');
 
 // db được truyền vào để kiểm thử được lớp HTTP mà không cần cơ sở dữ liệu thật.
@@ -21,6 +23,8 @@ function createApp({ db, jwtSecret = 'khoa-bi-mat-chi-dung-khi-kiem-thu', bcrypt
   });
 
   app.use('/api', authRoutes({ db, jwtSecret, bcryptRounds, limiter, allowRegistration }));
+  // /rooms/available phải đứng trước /rooms/:id.
+  app.use('/api', availabilityRoutes({ service: createAvailabilityService(db), guards }));
   app.use('/api', roomRoutes({ service: createRoomService(db), guards }));
 
   app.use((err, req, res, next) => {
