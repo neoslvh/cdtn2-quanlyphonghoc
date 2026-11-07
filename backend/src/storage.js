@@ -12,6 +12,10 @@ function createDiskStorage(dir) {
       await fs.writeFile(path.join(dir, name), buffer);
       return name;
     },
+    // Xóa tệp đã lưu, dùng khi lưu bản ghi cơ sở dữ liệu thất bại. Tên tệp do chính save tạo ra nên không chứa đường dẫn.
+    async remove(name) {
+      await fs.rm(path.join(dir, path.basename(name)), { force: true });
+    },
   };
 }
 

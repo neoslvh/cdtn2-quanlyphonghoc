@@ -9,8 +9,20 @@ const { checkRequestBody } = require('../validators/request');
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const FILE_EXTENSIONS = ['.pdf', '.doc', '.docx', '.png', '.jpg', '.jpeg'];
+const MAX_ATTACHMENTS = 5;
 const LEAD_WORKDAYS = 3;
 const BGH_THRESHOLD = 200;
+
+// Chữ ký đầu tệp theo từng định dạng, để tệp đổi đuôi (ví dụ .exe đổi thành .pdf) bị từ chối.
+const SIGNATURES = {
+  '.pdf': [[0x25, 0x50, 0x44, 0x46]],
+  '.png': [[0x89, 0x50, 0x4e, 0x47]],
+  '.jpg': [[0xff, 0xd8, 0xff]],
+  '.jpeg': [[0xff, 0xd8, 0xff]],
+  '.docx': [[0x50, 0x4b, 0x03, 0x04]],
+  '.doc': [[0xd0, 0xcf, 0x11, 0xe0]],
+};
+const matchesSignature = (ext, buf) => (SIGNATURES[ext] || []).some((sig) => buf.length >= sig.length && sig.every((b, i) => buf[i] === b));
 
 const reqCode = (no) => `REQ-${String(no).padStart(3, '0')}`;
 const notFound = () => new ApiError(404, 'NOT_FOUND', 'Không tìm thấy yêu cầu.');
@@ -71,7 +83,10 @@ function createRequestService({ repo, availability, storage, clock = () => new D
       if (current.status !== 'DRAFT') throw new ApiError(409, 'INVALID_STATE', 'Chỉ sửa được yêu cầu đang ở trạng thái nháp.');
       const data = checkRequestBody(body);
       await checkRefs(user, data);
-      return toRequest(await repo.updateRequest(id, data));
+      const updated = await repo.updateRequest(id, data);
+      // null nghĩa là phiếu vừa được gửi hoặc hủy giữa hai bước.
+      if (!updated) throw new ApiError(409, 'INVALID_STATE', 'Chỉ sửa được yêu cầu đang ở trạng thái nháp.');
+      return toRequest(updated);
     },
 
     /**
@@ -99,11 +114,19 @@ function createRequestService({ repo, availability, storage, clock = () => new D
       const r = await owned(user, id);
       if (r.status !== 'DRAFT') throw new ApiError(409, 'INVALID_STATE', 'Chỉ đính kèm được vào yêu cầu đang ở trạng thái nháp.');
       if (!file) throw validation([{ field: 'file', message: 'Chọn tệp đính kèm.' }]);
+      if (r.attachments.length >= MAX_ATTACHMENTS) throw validation([{ field: 'file', message: `Mỗi yêu cầu tối đa ${MAX_ATTACHMENTS} tệp đính kèm.` }]);
       if (file.size > MAX_FILE_BYTES) throw new ApiError(413, 'FILE_TOO_LARGE', 'Tệp vượt quá giới hạn 5 MB.');
       const ext = path.extname(file.originalname || '').toLowerCase();
       if (!FILE_EXTENSIONS.includes(ext)) throw new ApiError(415, 'UNSUPPORTED_FILE_TYPE', 'Chỉ nhận tệp PDF, Word hoặc ảnh.');
+      if (!matchesSignature(ext, file.buffer)) throw new ApiError(415, 'UNSUPPORTED_FILE_TYPE', 'Nội dung tệp không đúng với định dạng của tên tệp.');
       const filePath = await storage.save(file.buffer, ext);
-      await repo.addAttachment(id, { type: r.participantCount >= BGH_THRESHOLD ? 'BGH_APPROVAL' : 'ATTACHMENT', filePath, fileName: path.basename(file.originalname).slice(0, 255), uploadedBy: user.id });
+      try {
+        await repo.addAttachment(id, { type: 'ATTACHMENT', filePath, fileName: path.basename(file.originalname).slice(0, 255), uploadedBy: user.id });
+      } catch (err) {
+        // Lưu bản ghi lỗi thì xóa tệp vừa ghi, không để tệp mồ côi trên đĩa.
+        await storage.remove(filePath).catch(() => {});
+        throw err;
+      }
       return toRequest(await repo.findRequest(id));
     },
 
