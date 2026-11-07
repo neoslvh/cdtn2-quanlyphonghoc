@@ -48,6 +48,49 @@ function availableRooms(q) {
   return paginate(items, q);
 }
 
+// ---- Quản lý phòng (FR-03) ----
+const ROOM_STATUSES = ['AVAILABLE', 'UNAVAILABLE', 'MAINTENANCE'];
+const ROOM_TYPES = ['CLASSROOM', 'LAB', 'HALL'];
+
+function listRooms(q) {
+  const kw = (q.get('q') || '').trim().toLowerCase();
+  const items = rooms
+    .filter((r) => !q.get('campus') || r.campus === q.get('campus'))
+    .filter((r) => !q.get('roomType') || r.roomType === q.get('roomType'))
+    .filter((r) => !q.get('status') || r.status === q.get('status'))
+    .filter((r) => !kw || `${r.code} ${r.name}`.toLowerCase().includes(kw))
+    .map((r) => ({ ...r, building: `Tòa ${r.code[0]}` }));
+  // Không truyền page thì trả toàn bộ, dùng cho các ô chọn phòng.
+  return q.get('page') ? paginate(items, q) : { items, total: items.length, page: 1, pageSize: items.length };
+}
+
+function validateRoom(b, current) {
+  const details = [];
+  const code = String(b.code || '').trim();
+  if (!code) details.push({ field: 'code', message: 'Nhập mã phòng.' });
+  else if (rooms.some((r) => r.code.toLowerCase() === code.toLowerCase() && r !== current)) details.push({ field: 'code', message: 'Mã phòng đã tồn tại.' });
+  if (!String(b.name || '').trim()) details.push({ field: 'name', message: 'Nhập tên phòng.' });
+  if (!b.campus) details.push({ field: 'campus', message: 'Chọn cơ sở.' });
+  if (!ROOM_TYPES.includes(b.roomType)) details.push({ field: 'roomType', message: 'Chọn loại phòng.' });
+  if (!Number.isInteger(b.capacity) || b.capacity < 1) details.push({ field: 'capacity', message: 'Sức chứa phải là số nguyên dương.' });
+  if (!ROOM_STATUSES.includes(b.status)) details.push({ field: 'status', message: 'Chọn trạng thái.' });
+  if (details.length) throw bad(details);
+  return { code, name: String(b.name).trim(), campus: b.campus, roomType: b.roomType, capacity: b.capacity, status: b.status };
+}
+
+function createRoom(b) {
+  const room = { id: nextId('room'), equipment: {}, ...validateRoom(b) };
+  rooms.push(room);
+  return { room };
+}
+
+function updateRoom(id, b) {
+  const room = rooms.find((r) => r.id === id);
+  if (!room) throw new ApiError(404, 'NOT_FOUND', 'Không tìm thấy phòng.');
+  Object.assign(room, validateRoom(b, room));
+  return { room };
+}
+
 // ---- Yêu cầu sử dụng phòng (FR-07, FR-08) ----
 function validateRequest(b) {
   const details = [];
@@ -235,7 +278,9 @@ function updateSession(id, b) {
 const route = (method, pattern, handler) => ({ method, re: new RegExp(`^${pattern}$`), handler });
 const routes = [
   route('GET', '/rooms/available', (m, q) => availableRooms(q)),
-  route('GET', '/rooms', () => ({ items: rooms, total: rooms.length, page: 1, pageSize: rooms.length })),
+  route('GET', '/rooms', (m, q) => listRooms(q)),
+  route('POST', '/rooms', (m, q, b) => createRoom(b)),
+  route('PATCH', '/rooms/([^/]+)', (m, q, b) => updateRoom(m[1], b)),
   route('GET', '/period-slots', () => ({ items: periodSlots })),
   route('POST', '/requests', (m, q, b) => {
     validateRequest(b);
