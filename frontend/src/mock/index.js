@@ -281,6 +281,42 @@ function updateSession(id, b) {
   return s;
 }
 
+// ---- Duyệt yêu cầu (FR-10, FR-11) ----
+const pendingStep = (r) => {
+  const s = r.steps.find((x) => x.status === 'PENDING');
+  if (r.status !== 'PENDING' || !s) throw new ApiError(409, 'INVALID_STATE', 'Yêu cầu không còn ở trạng thái chờ duyệt.');
+  return s;
+};
+
+function approveRequest(r) {
+  const step = pendingStep(r);
+  const next = r.steps.find((x) => x.order === step.order + 1);
+  if (!next) {
+    // Bước cuối: kiểm tra lại phòng, lịch học chính khóa và lượt đặt đã duyệt (SCRUM-13).
+    const room = rooms.find((x) => x.id === r.room.id);
+    if (room.status !== 'AVAILABLE') throw new ApiError(409, 'ROOM_UNAVAILABLE', `Phòng ${room.code} hiện không khả dụng.`);
+    const cls = classSessions.find((s) => s.status === 'ACTIVE' && s.roomCode === room.code && overlap(s.startAt, s.endAt, r.startAt, r.endAt));
+    if (cls) throw new ApiError(409, 'ROOM_CONFLICT', `Phòng ${room.code} đã có lớp học trong khung giờ này nên không thể duyệt.`, [{ source: 'CLASS_SCHEDULE', courseCode: cls.courseCode, classCode: cls.classCode }]);
+    const bk = requests.find((x) => x.id !== r.id && x.status === 'APPROVED' && x.room.code === room.code && overlap(x.startAt, x.endAt, r.startAt, r.endAt));
+    if (bk) throw new ApiError(409, 'ROOM_CONFLICT', `Phòng ${room.code} đã có lượt đặt được duyệt trong khung giờ này nên không thể duyệt.`, [{ source: 'ROOM_BOOKING', requestCode: bk.code }]);
+    r.status = 'APPROVED';
+  } else {
+    next.status = 'PENDING';
+  }
+  step.status = 'APPROVED';
+  return r;
+}
+
+function rejectRequest(r, b) {
+  const reason = b && String(b.reason || '').trim();
+  if (!reason) throw bad([{ field: 'reason', message: 'Nhập lý do từ chối.' }]);
+  const step = pendingStep(r);
+  step.status = 'REJECTED';
+  r.status = 'REJECTED';
+  r.steps = r.steps.map((s) => (s.status === 'WAITING' ? { ...s, status: 'CANCELLED' } : s));
+  return r;
+}
+
 const route = (method, pattern, handler) => ({ method, re: new RegExp(`^${pattern}$`), handler });
 const routes = [
   route('GET', '/rooms/available', (m, q) => availableRooms(q)),
@@ -320,6 +356,9 @@ const routes = [
     r.attachments.push({ id: nextId('att'), fileName: file.name, size: file.size });
     return { request: r };
   }),
+  route('GET', '/approvals', (m, q) => paginate(requests.filter((r) => r.status === 'PENDING'), q)),
+  route('POST', '/requests/([^/]+)/approve', (m) => ({ request: approveRequest(findRequest(m[1])) })),
+  route('POST', '/requests/([^/]+)/reject', (m, q, b) => ({ request: rejectRequest(findRequest(m[1]), b) })),
   route('POST', '/requests/([^/]+)/submit', (m) => ({ request: submitRequest(findRequest(m[1])) })),
   route('POST', '/class-schedule/imports', (m, q, b) => createImport(b)),
   route('GET', '/class-schedule/imports', (m, q) => paginate(importBatches.map(({ sessions, ...b }) => b), q)),

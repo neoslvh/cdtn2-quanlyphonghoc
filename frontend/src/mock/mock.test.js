@@ -186,3 +186,48 @@ describe('danh sách và hủy yêu cầu', () => {
     await fails(call('POST', `/requests/${r.id}/cancel`, {}), 409, 'INVALID_STATE');
   });
 });
+
+describe('duyệt yêu cầu', () => {
+  const pending = async (n) => {
+    const r = await draft({ roomId: 'room-d0201', startAt: nextWeekday(n).format(), endAt: nextWeekday(n).add(2, 'hour').format() });
+    return (await call('POST', `/requests/${r.id}/submit`)).request;
+  };
+
+  test('duyệt lần lượt từng bước: bước kế mở ra, bước cuối chuyển phiếu sang Đã duyệt', async () => {
+    const r = await pending(80);
+    expect((await call('GET', '/approvals')).items.map((x) => x.id)).toContain(r.id);
+    const mid = (await call('POST', `/requests/${r.id}/approve`, {})).request;
+    expect([mid.status, mid.steps.map((s) => s.status)]).toEqual(['PENDING', ['APPROVED', 'PENDING']]);
+    const done = (await call('POST', `/requests/${r.id}/approve`, {})).request;
+    expect([done.status, done.steps.map((s) => s.status)]).toEqual(['APPROVED', ['APPROVED', 'APPROVED']]);
+    expect((await call('GET', '/approvals')).items.map((x) => x.id)).not.toContain(r.id);
+    await fails(call('POST', `/requests/${r.id}/approve`, {}), 409, 'INVALID_STATE');
+  });
+
+  test('từ chối bắt buộc có lý do, phiếu thành Từ chối và các bước sau bị hủy', async () => {
+    const r = await pending(81);
+    const err = await fails(call('POST', `/requests/${r.id}/reject`, { reason: '  ' }), 400, 'VALIDATION_ERROR');
+    expect(err.details[0].field).toBe('reason');
+    const { request } = await call('POST', `/requests/${r.id}/reject`, { reason: 'Trùng sự kiện của trường' });
+    expect([request.status, request.steps.map((s) => s.status)]).toEqual(['REJECTED', ['REJECTED', 'CANCELLED']]);
+  });
+
+  test('bước cuối kiểm tra lại: lịch học xuất hiện sau khi gửi thì không cho duyệt và phiếu giữ nguyên', async () => {
+    const r = await pending(82);
+    await call('POST', `/requests/${r.id}/approve`, {});
+    const start = dayjs(r.startAt);
+    classSessions.push({ id: 'ses-late', roomCode: 'D.02.01', courseCode: 'LATE1', courseName: 'Thử', classCode: 'K-LATE', status: 'ACTIVE', semester: 'HK1', startAt: start.format(), endAt: start.add(3, 'hour').format() });
+    const err = await fails(call('POST', `/requests/${r.id}/approve`, {}), 409, 'ROOM_CONFLICT');
+    expect(err.details[0]).toMatchObject({ source: 'CLASS_SCHEDULE', classCode: 'K-LATE' });
+    expect((await call('GET', `/requests/${r.id}`)).request).toMatchObject({ status: 'PENDING' });
+  });
+
+  test('hai phiếu cùng phòng cùng giờ: phiếu duyệt sau bị ROOM_CONFLICT kèm mã phiếu đã duyệt', async () => {
+    const a = await pending(83);
+    const b = (await call('POST', `/requests/${(await draft({ roomId: 'room-d0201', startAt: a.startAt, endAt: a.endAt })).id}/submit`)).request;
+    for (const x of [a, b]) await call('POST', `/requests/${x.id}/approve`, {});
+    await call('POST', `/requests/${a.id}/approve`, {});
+    const err = await fails(call('POST', `/requests/${b.id}/approve`, {}), 409, 'ROOM_CONFLICT');
+    expect(err.details[0]).toMatchObject({ source: 'ROOM_BOOKING', requestCode: a.code });
+  });
+});
