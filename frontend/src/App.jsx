@@ -9,6 +9,7 @@ import ClassSchedule from './pages/ClassSchedule';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import MyRequests from './pages/MyRequests';
+import Notifications from './pages/Notifications';
 import Register from './pages/Register';
 import RequestDetail from './pages/RequestDetail';
 import RequestForm from './pages/RequestForm';
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="change-password" element={<ChangePassword />} />
           <Route path="rooms/search" element={<RoomSearch />} />
           <Route path="rooms" element={<Protected allow={canManageRooms}><RoomManage /></Protected>} />
+          <Route path="notifications" element={<Notifications />} />
           <Route path="approvals" element={<Protected roles={['APPROVER']}><Approvals /></Protected>} />
           <Route path="requests" element={<Protected roles={['REQUESTER', 'ADMIN']}><MyRequests /></Protected>} />
           <Route path="requests/new" element={<Protected roles={['REQUESTER']}><RequestForm /></Protected>} />

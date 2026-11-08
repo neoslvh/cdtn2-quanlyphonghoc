@@ -2,7 +2,7 @@
 
 Mã nguồn đồ án Chuyên đề Tốt nghiệp 2 của nhóm Trần Đăng Khoa, Lưu Văn Hưng, Nguyễn Gia Huy. Kiến trúc và lý do chọn công nghệ được trình bày trong tài liệu docs/Buoi4_ThietKeKienTruc_CongNghe.docx.
 
-Ở phiên bản hiện tại, hệ thống có đăng nhập, cấp tài khoản và đổi mật khẩu (FR-01, FR-02), quản lý phòng (FR-03), tra cứu phòng trống (FR-06), lập, gửi và hủy yêu cầu sử dụng phòng (FR-07, FR-08, FR-09) và quản lý lịch học chính khóa của Phòng Đào tạo (FR-23), tức toàn bộ phạm vi Sprint 2. Duyệt yêu cầu, thiết bị, thông báo và các chức năng còn lại làm ở các sprint sau.
+Ở phiên bản hiện tại, hệ thống có đăng nhập, cấp tài khoản và đổi mật khẩu (FR-01, FR-02), quản lý phòng (FR-03), tra cứu phòng trống (FR-06), lập, gửi và hủy yêu cầu sử dụng phòng (FR-07, FR-08, FR-09) và quản lý lịch học chính khóa của Phòng Đào tạo (FR-23), tức toàn bộ phạm vi Sprint 2. Từ Sprint 3 có thêm theo dõi, sửa và hủy yêu cầu của tôi, duyệt và từ chối theo chuỗi đơn vị, thông báo và nhật ký thao tác. Thiết bị và các chức năng còn lại làm ở các sprint sau.
 
 ## 1. Cấu trúc thư mục
 

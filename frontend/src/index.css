@@ -65,6 +65,14 @@ body { margin: 0; font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; colo
 .form-row > .grow2 { flex: 2 1 320px; }
 .form-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: flex-end; margin-top: 8px; }
 .note { margin: 12px 0 0; color: var(--vlu-gray); font-size: 13px; line-height: 1.5; }
+.notice-list { list-style: none; margin: 0; padding: 0; }
+.notice { border: 1px solid var(--vlu-line); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; background: #fff; }
+.notice-unread { border-left: 4px solid var(--vlu-red); background: #fffafa; }
+.notice-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.notice-head b { color: var(--vlu-navy); }
+.notice-head small { margin-left: auto; color: var(--vlu-gray); }
+.notice p { margin: 6px 0 0; line-height: 1.5; }
+.notice-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 6px; font-size: 14px; }
 .equip-grid { display: flex; flex-wrap: wrap; gap: 12px 28px; }
 .equip-item { display: flex; align-items: center; gap: 8px; }
 .stat-row { display: flex; flex-wrap: wrap; gap: 24px 48px; }

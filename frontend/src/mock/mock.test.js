@@ -231,3 +231,43 @@ describe('duyệt yêu cầu', () => {
     expect(err.details[0]).toMatchObject({ source: 'ROOM_BOOKING', requestCode: a.code });
   });
 });
+
+describe('thông báo', () => {
+  const pending = async (n) => {
+    const r = await draft({ roomId: 'room-d0201', startAt: nextWeekday(n).format(), endAt: nextWeekday(n).add(2, 'hour').format() });
+    return (await call('POST', `/requests/${r.id}/submit`)).request;
+  };
+
+  test('từ chối và duyệt xong tạo thông báo mới nhất trước, đếm chưa đọc, lọc chưa đọc', async () => {
+    const a = await pending(90);
+    await call('POST', `/requests/${a.id}/reject`, { reason: 'Trùng sự kiện' });
+    const b = await pending(91);
+    await call('POST', `/requests/${b.id}/approve`, {});
+    await call('POST', `/requests/${b.id}/approve`, {});
+    const all = await call('GET', '/notifications');
+    expect(all).toMatchObject({ total: 2, unread: 2 });
+    expect(all.items.map((n) => [n.requestId, n.title])).toEqual([[b.id, 'Yêu cầu sử dụng phòng đã được duyệt'], [a.id, 'Yêu cầu sử dụng phòng bị từ chối']]);
+    expect(all.items[1].message).toContain('Trùng sự kiện');
+    expect((await call('GET', '/notifications?unread=true')).total).toBe(2);
+  });
+
+  test('đánh dấu một thông báo rồi tất cả đã đọc; id lạ báo NOT_FOUND', async () => {
+    for (const n of [92, 93]) await call('POST', `/requests/${(await pending(n)).id}/reject`, { reason: 'x' });
+    const [first] = (await call('GET', '/notifications')).items;
+    expect((await call('PATCH', `/notifications/${first.id}/read`)).notification.read).toBe(true);
+    expect((await call('GET', '/notifications?unread=true'))).toMatchObject({ total: 1, unread: 1 });
+    expect(await call('POST', '/notifications/read-all')).toEqual({ updated: 1 });
+    expect((await call('GET', '/notifications?unread=true')).total).toBe(0);
+    await fails(call('PATCH', '/notifications/khong-co/read'), 404, 'NOT_FOUND');
+  });
+
+  test('lịch học nhập sau hủy phiếu đang chờ thì người đăng ký nhận thông báo kèm lý do', async () => {
+    const r = await pending(94);
+    const d = dayjs(r.startAt).format('DD/MM/YYYY');
+    const prev = await call('POST', '/class-schedule/imports', csvForm([`HK1 2026-2027,TB001,Thử thông báo,K-TB,${(dayjs(r.startAt).day() + 6) % 7 + 2},1,12,D.02.01,${d},${d}`]));
+    await call('POST', `/class-schedule/imports/${prev.batchId}/commit`);
+    const n = (await call('GET', '/notifications')).items[0];
+    expect(n).toMatchObject({ requestId: r.id, title: 'Yêu cầu sử dụng phòng bị hủy' });
+    expect(n.message).toContain('TB001');
+  });
+});
