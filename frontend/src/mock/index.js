@@ -1,7 +1,7 @@
 import dayjs from 'dayjs';
 import { CAMPUSES } from '../constants';
 import { ApiError } from '../errors';
-import { classSessions, expandSessions, importBatches, nextId, periodSlots, requests, rooms, SEMESTER } from './db';
+import { classSessions, expandSessions, importBatches, nextId, notifications, periodSlots, requests, rooms, SEMESTER } from './db';
 
 // Máy chủ giả cho các API chưa có ở backend: phòng, yêu cầu, lịch học chính khóa. Mã lỗi và thứ tự kiểm tra theo API Contract v1.0.
 // Khi backend làm xong, đặt VITE_API_MOCK=false để màn hình gọi API thật mà không phải sửa gì khác.
@@ -250,6 +250,7 @@ function commitImport(b) {
     const r = requests.find((x) => x.id === c.requestId);
     r.status = 'CANCELLED';
     r.cancelReason = `Phòng ${c.roomCode} có lớp ${c.conflictWith.courseCode} (${c.conflictWith.classCode}) theo thời khóa biểu mới của Phòng Đào tạo.`;
+    notify(r, 'Yêu cầu sử dụng phòng bị hủy', r.cancelReason);
     return { id: r.id, requestCode: r.code, requesterName: r.requesterName, cancelReason: r.cancelReason };
   });
   b.status = 'COMMITTED';
@@ -300,6 +301,7 @@ function approveRequest(r) {
     const bk = requests.find((x) => x.id !== r.id && x.status === 'APPROVED' && x.room.code === room.code && overlap(x.startAt, x.endAt, r.startAt, r.endAt));
     if (bk) throw new ApiError(409, 'ROOM_CONFLICT', `Phòng ${room.code} đã có lượt đặt được duyệt trong khung giờ này nên không thể duyệt.`, [{ source: 'ROOM_BOOKING', requestCode: bk.code }]);
     r.status = 'APPROVED';
+    notify(r, 'Yêu cầu sử dụng phòng đã được duyệt', `Yêu cầu ${r.code} dùng phòng ${room.code} đã được duyệt.`);
   } else {
     next.status = 'PENDING';
   }
@@ -314,8 +316,12 @@ function rejectRequest(r, b) {
   step.status = 'REJECTED';
   r.status = 'REJECTED';
   r.steps = r.steps.map((s) => (s.status === 'WAITING' ? { ...s, status: 'CANCELLED' } : s));
+  notify(r, 'Yêu cầu sử dụng phòng bị từ chối', `Yêu cầu ${r.code} bị ${step.organizationName} từ chối: ${reason}`);
   return r;
 }
+
+// ---- Thông báo (FR-14) ----
+const notify = (r, title, text) => notifications.push({ id: nextId('ntf'), requestId: r.id, title, message: text, read: false, createdAt: dayjs().format() });
 
 const route = (method, pattern, handler) => ({ method, re: new RegExp(`^${pattern}$`), handler });
 const routes = [
@@ -355,6 +361,21 @@ const routes = [
     if (!/\.(pdf|docx?|png|jpe?g)$/i.test(file.name)) throw new ApiError(415, 'UNSUPPORTED_FILE_TYPE', 'Chỉ nhận tệp PDF, Word hoặc ảnh.');
     r.attachments.push({ id: nextId('att'), fileName: file.name, size: file.size });
     return { request: r };
+  }),
+  route('GET', '/notifications', (m, q) => {
+    const all = notifications.filter((n) => q.get('unread') !== 'true' || !n.read).slice().reverse();
+    return { ...paginate(all, q), unread: notifications.filter((n) => !n.read).length };
+  }),
+  route('POST', '/notifications/read-all', () => {
+    const open = notifications.filter((n) => !n.read);
+    open.forEach((n) => { n.read = true; });
+    return { updated: open.length };
+  }),
+  route('PATCH', '/notifications/([^/]+)/read', (m) => {
+    const n = notifications.find((x) => x.id === m[1]);
+    if (!n) throw new ApiError(404, 'NOT_FOUND', 'Không tìm thấy thông báo.');
+    n.read = true;
+    return { notification: n };
   }),
   route('GET', '/approvals', (m, q) => paginate(requests.filter((r) => r.status === 'PENDING'), q)),
   route('POST', '/requests/([^/]+)/approve', (m) => ({ request: approveRequest(findRequest(m[1])) })),

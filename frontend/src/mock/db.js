@@ -57,3 +57,4 @@ export const classSessions = seed.flatMap((s) =>
 );
 export const importBatches = [];
 export const requests = [];
+export const notifications = [];
