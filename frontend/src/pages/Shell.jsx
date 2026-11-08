@@ -22,6 +22,7 @@ export default function Shell() {
           <NavLink to="/" end>Trang chủ</NavLink>
           <NavLink to="/rooms/search">Tra cứu phòng</NavLink>
           {user.role === 'REQUESTER' && <NavLink to="/requests/new">Tạo yêu cầu</NavLink>}
+          {['REQUESTER', 'ADMIN'].includes(user.role) && <NavLink to="/requests" end>{user.role === 'ADMIN' ? 'Tất cả yêu cầu' : 'Yêu cầu của tôi'}</NavLink>}
           {canManageRooms(user) && <NavLink to="/rooms" end>Quản lý phòng</NavLink>}
           {canManageSchedule(user) && <NavLink to="/class-schedule">Lịch học chính khóa</NavLink>}
           {user.role === 'ADMIN' && <NavLink to="/admin/users">Tài khoản</NavLink>}

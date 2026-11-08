@@ -7,7 +7,9 @@ import ChangePassword from './pages/ChangePassword';
 import ClassSchedule from './pages/ClassSchedule';
 import Home from './pages/Home';
 import Login from './pages/Login';
+import MyRequests from './pages/MyRequests';
 import Register from './pages/Register';
+import RequestDetail from './pages/RequestDetail';
 import RequestForm from './pages/RequestForm';
 import RoomManage from './pages/RoomManage';
 import RoomSearch from './pages/RoomSearch';
@@ -36,7 +38,10 @@ export default function App() {
           <Route path="change-password" element={<ChangePassword />} />
           <Route path="rooms/search" element={<RoomSearch />} />
           <Route path="rooms" element={<Protected allow={canManageRooms}><RoomManage /></Protected>} />
+          <Route path="requests" element={<Protected roles={['REQUESTER', 'ADMIN']}><MyRequests /></Protected>} />
           <Route path="requests/new" element={<Protected roles={['REQUESTER']}><RequestForm /></Protected>} />
+          <Route path="requests/:id" element={<Protected roles={['REQUESTER', 'ADMIN', 'FACILITY_STAFF']}><RequestDetail /></Protected>} />
+          <Route path="requests/:id/edit" element={<Protected roles={['REQUESTER']}><RequestForm /></Protected>} />
           <Route path="class-schedule" element={<Protected allow={canManageSchedule}><ClassSchedule /></Protected>} />
           <Route path="admin/users" element={<Protected roles={['ADMIN']}><AdminUsers /></Protected>} />
         </Route>
