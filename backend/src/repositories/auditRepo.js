@@ -30,9 +30,9 @@ function createAuditRepo(prisma) {
 
     /** Đánh dấu một thông báo của chính người dùng là đã đọc. Trả thông báo, hoặc null nếu không phải của họ hoặc không có. */
     markNotificationRead: async (userId, id) => {
-      const { count } = await prisma.notification.updateMany({ where: { id, userId, readAt: null }, data: { readAt: new Date() } });
       const n = await prisma.notification.findFirst({ where: { id, userId } });
-      return count || n ? n : null;
+      if (!n || n.readAt) return n;
+      return prisma.notification.update({ where: { id }, data: { readAt: new Date() } });
     },
 
     markAllNotificationsRead: async (userId) => (await prisma.notification.updateMany({ where: { userId, readAt: null }, data: { readAt: new Date() } })).count,

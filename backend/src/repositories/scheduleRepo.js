@@ -1,6 +1,6 @@
 // Tầng repository: khung tiết, lần nhập thời khóa biểu và các buổi học. Không chứa quy tắc nghiệp vụ.
 const { Prisma } = require('@prisma/client');
-const { audit, notify } = require('./common');
+const { audit } = require('./common');
 
 // Giao dịch dài (xác nhận nhập) có thể phải chờ giao dịch khác nhả khóa dòng, nên cho chờ lấy kết nối lâu hơn mặc định 2 giây
 // để các yêu cầu cùng lúc xếp hàng và nhận INVALID_STATE thay vì lỗi hết thời gian chờ (P2028).
@@ -90,14 +90,12 @@ function createScheduleRepo(prisma) {
         const ids = conflicts.map((c) => c.requestId);
         if (ids.length) {
           const now = new Date();
-          for (const c of conflicts) {
-            const reason = cancelReason(c);
-            await tx.usageRequest.update({ where: { id: c.requestId }, data: { status: 'CANCELLED', cancelReason: reason, cancelledAt: now } });
-            // BR-11: người đăng ký nhận thông báo kèm lý do, và việc hủy được ghi nhật ký.
-            const owner = await tx.usageRequest.findUnique({ where: { id: c.requestId }, select: { requesterId: true } });
-            await notify(tx, { userId: owner.requesterId, requestId: c.requestId, title: 'Yêu cầu sử dụng phòng bị hủy', message: reason });
-            await audit(tx, { userId: actorId, action: 'REQUEST_CANCELLED_BY_SCHEDULE', entityType: 'usage_request', entityId: c.requestId, before: { status: c.requestStatus }, after: { status: 'CANCELLED', cancelReason: reason, batchId: id } });
-          }
+          // BR-11: người đăng ký nhận thông báo kèm lý do, và việc hủy được ghi nhật ký. Mỗi phiếu một lệnh update vì lý do hủy khác nhau,
+          // còn thông báo và nhật ký ghi hàng loạt để giao dịch ngắn khi có nhiều phiếu trùng.
+          const owners = new Map((await tx.usageRequest.findMany({ where: { id: { in: ids } }, select: { id: true, requesterId: true } })).map((r) => [r.id, r.requesterId]));
+          for (const c of conflicts) await tx.usageRequest.update({ where: { id: c.requestId }, data: { status: 'CANCELLED', cancelReason: cancelReason(c), cancelledAt: now } });
+          await tx.notification.createMany({ data: conflicts.map((c) => ({ userId: owners.get(c.requestId), requestId: c.requestId, title: 'Yêu cầu sử dụng phòng bị hủy', message: cancelReason(c) })) });
+          await tx.auditLog.createMany({ data: conflicts.map((c) => ({ userId: actorId, action: 'REQUEST_CANCELLED_BY_SCHEDULE', entityType: 'usage_request', entityId: c.requestId, beforeData: { status: c.requestStatus }, afterData: { status: 'CANCELLED', cancelReason: cancelReason(c), batchId: id } })) });
           await tx.approvalStep.updateMany({ where: { requestId: { in: ids }, status: { in: ['PENDING', 'WAITING'] } }, data: { status: 'CANCELLED' } });
           await tx.roomBooking.updateMany({ where: { requestId: { in: ids }, status: 'ACTIVE' }, data: { status: 'CANCELLED' } });
         }

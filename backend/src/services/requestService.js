@@ -74,8 +74,7 @@ function createRequestService({ repo, availability, storage, clock = () => new D
     async create(user, body) {
       const data = checkRequestBody(body);
       await checkRefs(user, data);
-      const created = await repo.createRequest({ ...data, requesterId: user.id });
-      await repo.logAudit({ userId: user.id, action: 'REQUEST_CREATED', entityType: 'usage_request', entityId: created.id, after: { roomId: data.roomId, startAt: data.startAt, endAt: data.endAt, participantCount: data.participantCount } });
+      const created = await repo.createRequest({ ...data, requesterId: user.id }, (r) => ({ userId: user.id, action: 'REQUEST_CREATED', entityType: 'usage_request', entityId: r.id, after: { roomId: data.roomId, startAt: data.startAt, endAt: data.endAt, participantCount: data.participantCount } }));
       return toRequest(created);
     },
 
@@ -85,10 +84,9 @@ function createRequestService({ repo, availability, storage, clock = () => new D
       if (current.status !== 'DRAFT') throw new ApiError(409, 'INVALID_STATE', 'Chỉ sửa được yêu cầu đang ở trạng thái nháp.');
       const data = checkRequestBody(body);
       await checkRefs(user, data);
-      const updated = await repo.updateRequest(id, data);
+      const updated = await repo.updateRequest(id, data, { userId: user.id, action: 'REQUEST_UPDATED', entityType: 'usage_request', entityId: id, before: { roomId: current.room.id, startAt: current.startAt, endAt: current.endAt, participantCount: current.participantCount }, after: { roomId: data.roomId, startAt: data.startAt, endAt: data.endAt, participantCount: data.participantCount } });
       // null nghĩa là phiếu vừa được gửi hoặc hủy giữa hai bước.
       if (!updated) throw new ApiError(409, 'INVALID_STATE', 'Chỉ sửa được yêu cầu đang ở trạng thái nháp.');
-      await repo.logAudit({ userId: user.id, action: 'REQUEST_UPDATED', entityType: 'usage_request', entityId: id, before: { roomId: current.room.id, startAt: current.startAt, endAt: current.endAt, participantCount: current.participantCount }, after: { roomId: data.roomId, startAt: data.startAt, endAt: data.endAt, participantCount: data.participantCount } });
       return toRequest(updated);
     },
 
@@ -161,10 +159,9 @@ function createRequestService({ repo, availability, storage, clock = () => new D
       const orgs = await Promise.all(approvalChain(r.participantCount).map((name) => repo.findOrganizationByName(name)));
       if (orgs.some((o) => !o)) throw new ApiError(500, 'INTERNAL_ERROR', 'Chưa cấu hình đơn vị duyệt.');
       const steps = orgs.map((o, i) => ({ stepNo: i + 1, approverOrgId: o.id, status: i === 0 ? 'PENDING' : 'WAITING' }));
-      const submitted = await repo.submitRequest(id, steps, now);
+      const submitted = await repo.submitRequest(id, steps, now, { userId: user.id, action: 'REQUEST_SUBMITTED', entityType: 'usage_request', entityId: id, before: { status: 'DRAFT' }, after: { status: 'PENDING' } });
       // null nghĩa là có yêu cầu khác gửi hoặc hủy phiếu này trước.
       if (!submitted) throw new ApiError(409, 'INVALID_STATE', 'Yêu cầu đã được gửi hoặc hủy.');
-      await repo.logAudit({ userId: user.id, action: 'REQUEST_SUBMITTED', entityType: 'usage_request', entityId: id, before: { status: 'DRAFT' }, after: { status: 'PENDING' } });
       return toRequest(submitted);
     },
 
@@ -172,9 +169,8 @@ function createRequestService({ repo, availability, storage, clock = () => new D
     async cancel(user, id, reason) {
       const before = await owned(user, id);
       const text = typeof reason === 'string' && reason.trim() ? reason.trim().slice(0, 500) : 'Người đăng ký hủy yêu cầu';
-      const cancelled = await repo.cancelRequest(id, text, clock());
+      const cancelled = await repo.cancelRequest(id, text, clock(), { userId: user.id, action: 'REQUEST_CANCELLED', entityType: 'usage_request', entityId: id, before: { status: before.status }, after: { status: 'CANCELLED', cancelReason: text } });
       if (!cancelled) throw new ApiError(409, 'INVALID_STATE', 'Yêu cầu không còn hủy được.');
-      await repo.logAudit({ userId: user.id, action: 'REQUEST_CANCELLED', entityType: 'usage_request', entityId: id, before: { status: before.status }, after: { status: 'CANCELLED', cancelReason: text } });
       return toRequest(cancelled);
     },
   };

@@ -159,7 +159,7 @@ function fakeDb() {
     // phiếu đề xuất
     findOrganizationByName: async (name) => ORGS.find((o) => o.name === name) || null,
     findRequest: async (rid) => requests.find((r) => r.id === rid) || null,
-    createRequest: async ({ requesterId, equipment, ...data }) => {
+    createRequest: async ({ requesterId, equipment, ...data }, log) => {
       const room = rooms.find((r) => r.id === data.roomId);
       const r = {
         id: `10000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`,
@@ -178,13 +178,15 @@ function fakeDb() {
         ...data,
       };
       requests.push(r);
+      if (log) audit.push({ ...log(r), createdAt: new Date() });
       return r;
     },
-    updateRequest: async (rid, { equipment, ...data }) => {
+    updateRequest: async (rid, { equipment, ...data }, log) => {
       const r = requests.find((x) => x.id === rid);
       if (r.status !== 'DRAFT') return null;
       const room = rooms.find((x) => x.id === data.roomId);
       Object.assign(r, data, { equipment, room: { id: room.id, code: room.code, name: room.name, capacity: room.capacity, status: room.status } });
+      if (log) audit.push({ ...log, createdAt: new Date() });
       return r;
     },
     listRequests: async ({ requesterId, status, page, pageSize }) => {
@@ -194,21 +196,55 @@ function fakeDb() {
     addAttachment: async (rid, data) => {
       requests.find((r) => r.id === rid).attachments.push({ id: `att-${++seq}`, fileName: data.fileName, type: data.type, filePath: data.filePath });
     },
-    submitRequest: async (rid, steps, now) => {
+    submitRequest: async (rid, steps, now, log) => {
       const r = requests.find((x) => x.id === rid);
       if (r.status !== 'DRAFT') return null;
       r.status = 'PENDING';
       r.submittedAt = now;
-      r.steps = steps.map((st) => ({ stepNo: st.stepNo, organizationName: ORGS.find((o) => o.id === st.approverOrgId).name, status: st.status }));
+      r.steps = steps.map((st) => ({ id: `step-${++seq}`, stepNo: st.stepNo, approverOrgId: st.approverOrgId, organizationName: ORGS.find((o) => o.id === st.approverOrgId).name, status: st.status }));
+      if (log) audit.push({ ...log, createdAt: new Date() });
       return r;
     },
-    cancelRequest: async (rid, reason) => {
+    cancelRequest: async (rid, reason, now, log) => {
       const r = requests.find((x) => x.id === rid);
       if (!['DRAFT', 'PENDING'].includes(r.status)) return null;
       r.status = 'CANCELLED';
       r.cancelReason = reason;
       r.steps = r.steps.map((st) => (['PENDING', 'WAITING'].includes(st.status) ? { ...st, status: 'CANCELLED' } : st));
+      if (log) audit.push({ ...log, createdAt: new Date() });
       return r;
+    },
+    listPendingApprovals: async ({ orgId, page, pageSize }) => {
+      const all = requests.filter((r) => r.status === 'PENDING' && r.steps.some((s) => s.status === 'PENDING' && (!orgId || s.approverOrgId === orgId))).sort((a, b) => a.submittedAt - b.submittedAt);
+      return { items: all.slice((page - 1) * pageSize, page * pageSize), total: all.length };
+    },
+    approveStep: async ({ requestId, stepId, userId, reason, booking, requesterId }) => {
+      const r = requests.find((x) => x.id === requestId);
+      const st = r.steps.find((x) => x.id === stepId);
+      if (r.status !== 'PENDING' || st.status !== 'PENDING') return 'STALE';
+      if (booking && bookings.some((b) => b.roomId === booking.roomId && b.status === 'ACTIVE' && overlaps(b, booking.startAt, booking.endAt))) return 'CONFLICT';
+      Object.assign(st, { status: 'APPROVED', decisionReason: reason });
+      if (booking) {
+        r.status = 'APPROVED';
+        bookings.push({ requestId, requestNo: r.requestNo, roomId: booking.roomId, startAt: booking.startAt, endAt: booking.endAt, status: 'ACTIVE' });
+        notifications.push({ id: `40000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`, userId: requesterId, requestId, title: 'Yêu cầu sử dụng phòng đã được duyệt', message: booking.message, readAt: null, createdAt: new Date() });
+      } else {
+        const next = r.steps.find((x) => x.status === 'WAITING');
+        if (next) next.status = 'PENDING';
+      }
+      audit.push({ userId, action: booking ? 'REQUEST_APPROVED' : 'REQUEST_STEP_APPROVED', entityType: 'usage_request', entityId: requestId });
+      return 'OK';
+    },
+    rejectStep: async ({ requestId, stepId, userId, reason, requesterId, message }) => {
+      const r = requests.find((x) => x.id === requestId);
+      const st = r.steps.find((x) => x.id === stepId);
+      if (r.status !== 'PENDING' || st.status !== 'PENDING') return 'STALE';
+      r.status = 'REJECTED';
+      Object.assign(st, { status: 'REJECTED', decisionReason: reason });
+      for (const x of r.steps) if (x.status === 'WAITING') x.status = 'CANCELLED';
+      notifications.push({ id: `40000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`, userId: requesterId, requestId, title: 'Yêu cầu sử dụng phòng bị từ chối', message, readAt: null, createdAt: new Date() });
+      audit.push({ userId, action: 'REQUEST_REJECTED', entityType: 'usage_request', entityId: requestId });
+      return 'OK';
     },
     // phòng
     listRooms: async ({ campus, roomType, status, q, minCapacity, buildingCode, page, pageSize }) => {
@@ -232,14 +268,16 @@ function fakeDb() {
       buildings.push(b);
       return b;
     },
-    createRoom: async (data) => {
+    createRoom: async (data, log) => {
       const r = { id: '00000000-0000-4000-8000-' + String(++seq).padStart(12, '0'), equipment: {}, ...data };
       rooms.push(r);
+      if (log) audit.push({ ...log(flat(r)), createdAt: new Date() });
       return flat(r);
     },
-    updateRoom: async (rid, data) => {
+    updateRoom: async (rid, data, log) => {
       const r = rooms.find((x) => x.id === rid);
       Object.assign(r, data);
+      if (log) audit.push({ ...log(flat(r)), createdAt: new Date() });
       return flat(r);
     },
   };
