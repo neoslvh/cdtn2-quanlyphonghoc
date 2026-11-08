@@ -20,7 +20,7 @@ function flatRequest(r) {
     organizationName: organization.name,
     equipment: equipment.map((e) => ({ itemType: e.itemType, quantity: e.quantity, otherDescription: e.otherDescription })),
     attachments: attachments.map((a) => ({ id: a.id, fileName: a.fileName, type: a.type })),
-    steps: steps.map((s) => ({ stepNo: s.stepNo, organizationName: s.approverOrg.name, status: s.status })),
+    steps: steps.map((s) => ({ id: s.id, stepNo: s.stepNo, approverOrgId: s.approverOrgId, organizationName: s.approverOrg.name, status: s.status, decisionReason: s.decisionReason })),
   };
 }
 
@@ -53,6 +53,16 @@ function createRequestRepo(prisma) {
       const where = { ...(requesterId ? { requesterId } : {}), ...(status ? { status } : {}) };
       const [rows, total] = await Promise.all([
         prisma.usageRequest.findMany({ where, include, orderBy: { createdAt: 'desc' }, skip: (page - 1) * pageSize, take: pageSize }),
+        prisma.usageRequest.count({ where }),
+      ]);
+      return { items: rows.map(flatRequest), total };
+    },
+
+    /** Phiếu PENDING có bước đang chờ của đơn vị orgId (bỏ trống thì của mọi đơn vị), cũ nhất trước. Trả { items, total }. */
+    listPendingApprovals: async ({ orgId, page, pageSize }) => {
+      const where = { status: 'PENDING', steps: { some: { status: 'PENDING', ...(orgId ? { approverOrgId: orgId } : {}) } } };
+      const [rows, total] = await Promise.all([
+        prisma.usageRequest.findMany({ where, include, orderBy: { submittedAt: 'asc' }, skip: (page - 1) * pageSize, take: pageSize }),
         prisma.usageRequest.count({ where }),
       ]);
       return { items: rows.map(flatRequest), total };
