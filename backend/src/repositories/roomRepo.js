@@ -1,5 +1,5 @@
 // Tầng repository: đọc ghi PostgreSQL bằng Prisma, không chứa quy tắc nghiệp vụ.
-const { missing } = require('./common');
+const { missing, audit } = require('./common');
 
 const include = { building: true, equipment: { where: { status: 'GOOD' }, select: { equipmentType: true } } };
 
@@ -35,8 +35,19 @@ function createRoomRepo(prisma) {
     findBuildingByCode: (code) => prisma.building.findUnique({ where: { code } }),
     createBuilding: (data) => prisma.building.create({ data }),
     setBuildingCampus: (id, campus) => prisma.building.update({ where: { id }, data: { campus } }),
-    createRoom: async (data) => flatRoom(await prisma.room.create({ data, include })),
-    updateRoom: async (id, data) => flatRoom(await prisma.room.update({ where: { id }, data, include })),
+    // log là mục nhật ký (hoặc hàm nhận kết quả để dựng mục nhật ký), được ghi trong cùng giao dịch với thao tác chính.
+    createRoom: (data, log) =>
+      prisma.$transaction(async (tx) => {
+        const room = flatRoom(await tx.room.create({ data, include }));
+        if (log) await audit(tx, log(room));
+        return room;
+      }),
+    updateRoom: (id, data, log) =>
+      prisma.$transaction(async (tx) => {
+        const room = flatRoom(await tx.room.update({ where: { id }, data, include }));
+        if (log) await audit(tx, log(room));
+        return room;
+      }),
   };
 }
 

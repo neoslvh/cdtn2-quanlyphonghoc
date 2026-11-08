@@ -159,7 +159,7 @@ function fakeDb() {
     // phiếu đề xuất
     findOrganizationByName: async (name) => ORGS.find((o) => o.name === name) || null,
     findRequest: async (rid) => requests.find((r) => r.id === rid) || null,
-    createRequest: async ({ requesterId, equipment, ...data }) => {
+    createRequest: async ({ requesterId, equipment, ...data }, log) => {
       const room = rooms.find((r) => r.id === data.roomId);
       const r = {
         id: `10000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`,
@@ -178,13 +178,15 @@ function fakeDb() {
         ...data,
       };
       requests.push(r);
+      if (log) audit.push({ ...log(r), createdAt: new Date() });
       return r;
     },
-    updateRequest: async (rid, { equipment, ...data }) => {
+    updateRequest: async (rid, { equipment, ...data }, log) => {
       const r = requests.find((x) => x.id === rid);
       if (r.status !== 'DRAFT') return null;
       const room = rooms.find((x) => x.id === data.roomId);
       Object.assign(r, data, { equipment, room: { id: room.id, code: room.code, name: room.name, capacity: room.capacity, status: room.status } });
+      if (log) audit.push({ ...log, createdAt: new Date() });
       return r;
     },
     listRequests: async ({ requesterId, status, page, pageSize }) => {
@@ -194,20 +196,22 @@ function fakeDb() {
     addAttachment: async (rid, data) => {
       requests.find((r) => r.id === rid).attachments.push({ id: `att-${++seq}`, fileName: data.fileName, type: data.type, filePath: data.filePath });
     },
-    submitRequest: async (rid, steps, now) => {
+    submitRequest: async (rid, steps, now, log) => {
       const r = requests.find((x) => x.id === rid);
       if (r.status !== 'DRAFT') return null;
       r.status = 'PENDING';
       r.submittedAt = now;
       r.steps = steps.map((st) => ({ id: `step-${++seq}`, stepNo: st.stepNo, approverOrgId: st.approverOrgId, organizationName: ORGS.find((o) => o.id === st.approverOrgId).name, status: st.status }));
+      if (log) audit.push({ ...log, createdAt: new Date() });
       return r;
     },
-    cancelRequest: async (rid, reason) => {
+    cancelRequest: async (rid, reason, now, log) => {
       const r = requests.find((x) => x.id === rid);
       if (!['DRAFT', 'PENDING'].includes(r.status)) return null;
       r.status = 'CANCELLED';
       r.cancelReason = reason;
       r.steps = r.steps.map((st) => (['PENDING', 'WAITING'].includes(st.status) ? { ...st, status: 'CANCELLED' } : st));
+      if (log) audit.push({ ...log, createdAt: new Date() });
       return r;
     },
     listPendingApprovals: async ({ orgId, page, pageSize }) => {
@@ -264,14 +268,16 @@ function fakeDb() {
       buildings.push(b);
       return b;
     },
-    createRoom: async (data) => {
+    createRoom: async (data, log) => {
       const r = { id: '00000000-0000-4000-8000-' + String(++seq).padStart(12, '0'), equipment: {}, ...data };
       rooms.push(r);
+      if (log) audit.push({ ...log(flat(r)), createdAt: new Date() });
       return flat(r);
     },
-    updateRoom: async (rid, data) => {
+    updateRoom: async (rid, data, log) => {
       const r = rooms.find((x) => x.id === rid);
       Object.assign(r, data);
+      if (log) audit.push({ ...log(flat(r)), createdAt: new Date() });
       return flat(r);
     },
   };

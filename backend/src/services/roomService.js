@@ -70,8 +70,7 @@ function createRoomService(repo) {
       }
       if (!building.campus) building = await repo.setBuildingCampus(building.id, campus);
       try {
-        const created = await repo.createRoom({ ...data, buildingId: building.id });
-        if (actor) await repo.logAudit({ userId: actor.id, action: 'ROOM_CREATED', entityType: 'room', entityId: created.id, after: { code: created.code, status: created.status, capacity: created.capacity } });
+        const created = await repo.createRoom({ ...data, buildingId: building.id }, actor && ((r) => ({ userId: actor.id, action: 'ROOM_CREATED', entityType: 'room', entityId: r.id, after: { code: r.code, status: r.status, capacity: r.capacity } })));
         return toRoom(created);
       } catch (err) {
         // Hai yêu cầu cùng lúc có thể cùng qua bước kiểm tra, ràng buộc unique của cơ sở dữ liệu là chốt chặn cuối.
@@ -96,8 +95,7 @@ function createRoomService(repo) {
         throw validation([{ field: 'campus', message: 'Không đổi cơ sở của phòng. Tòa nhà thuộc cơ sở này.' }]);
       }
       if (!current.campus) await repo.setBuildingCampus(current.buildingId, campus);
-      const updated = await repo.updateRoom(current.id, data);
-      if (actor) await repo.logAudit({ userId: actor.id, action: 'ROOM_UPDATED', entityType: 'room', entityId: current.id, before: { name: current.name, capacity: current.capacity, status: current.status, roomType: current.roomType }, after: { name: updated.name, capacity: updated.capacity, status: updated.status, roomType: updated.roomType } });
+      const updated = await repo.updateRoom(current.id, data, actor && ((r) => ({ userId: actor.id, action: 'ROOM_UPDATED', entityType: 'room', entityId: current.id, before: { name: current.name, capacity: current.capacity, status: current.status, roomType: current.roomType }, after: { name: r.name, capacity: r.capacity, status: r.status, roomType: r.roomType } })));
       return toRoom(updated);
     },
   };
