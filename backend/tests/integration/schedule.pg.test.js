@@ -47,7 +47,7 @@ maybe('thời khóa biểu trên PostgreSQL thật', () => {
     const p = await schedule.createImport(admin, csv([line()]), { semester, mode: 'APPEND' });
     expect(p).toMatchObject({ status: 'PREVIEW', rowCount: 1, sessionCount: 3 });
     expect(await availability.conflictDetails(room.id, fromVN(2027, 1, 4, 7), fromVN(2027, 1, 4, 9))).toEqual([]);
-    const done = await schedule.commit(p.batchId);
+    const done = await schedule.commit(admin, p.batchId);
     expect(done).toMatchObject({ activatedSessions: 3, replacedSessions: 0 });
     expect(await availability.conflictDetails(room.id, fromVN(2027, 1, 4, 8), fromVN(2027, 1, 4, 9))).toEqual([{ source: 'CLASS_SCHEDULE', courseCode: 'PG200', classCode: 'K-PG' }]);
     const q = { from: fromVN(2027, 1, 4, 8).toISOString(), to: fromVN(2027, 1, 4, 9).toISOString(), capacity: '10' };
@@ -69,7 +69,7 @@ maybe('thời khóa biểu trên PostgreSQL thật', () => {
     const p = await schedule.createImport(admin, csv([line('K-REPLACE')]), { semester, mode: 'REPLACE' });
     expect(p.conflicts.map((c) => c.requestStatus).sort()).toEqual(['APPROVED', 'PENDING']);
     expect(p.conflicts[0]).toMatchObject({ roomCode: 'B.05.04', conflictWith: { courseCode: 'PG200', classCode: 'K-REPLACE' } });
-    const done = await schedule.commit(p.batchId);
+    const done = await schedule.commit(admin, p.batchId);
     expect(done.replacedSessions).toBe(3);
     expect(done.cancelledRequests).toHaveLength(2);
     expect(done.cancelledRequests[0].cancelReason).toBe('Phòng B.05.04 có lớp PG200 (K-REPLACE) theo thời khóa biểu mới của Phòng Đào tạo.');
@@ -82,7 +82,7 @@ maybe('thời khóa biểu trên PostgreSQL thật', () => {
 
   test('năm yêu cầu cùng xác nhận một lần nhập: đúng một thành công, buổi học chỉ được kích hoạt một lần', async () => {
     const p = await schedule.createImport(admin, csv([line('K-RACE')]), { semester, mode: 'APPEND' });
-    const results = await Promise.allSettled(Array.from({ length: 5 }, () => schedule.commit(p.batchId)));
+    const results = await Promise.allSettled(Array.from({ length: 5 }, () => schedule.commit(admin, p.batchId)));
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
     expect(results.filter((r) => r.status === 'rejected').every((r) => r.reason.code === 'INVALID_STATE')).toBe(true);
     expect(await prisma.classSchedule.count({ where: { batchId: p.batchId, status: 'ACTIVE' } })).toBe(3);
@@ -90,15 +90,15 @@ maybe('thời khóa biểu trên PostgreSQL thật', () => {
 
   test('hủy xem trước xóa các buổi PENDING; sửa buổi sang giờ trùng buổi khác bị chặn ROOM_CONFLICT', async () => {
     const p = await schedule.createImport(admin, csv([line('K-DISCARD')]), { semester, mode: 'APPEND' });
-    await schedule.discard(p.batchId);
+    await schedule.discard(admin, p.batchId);
     expect(await prisma.classSchedule.count({ where: { batchId: p.batchId } })).toBe(0);
     const sessions = await prisma.classSchedule.findMany({ where: { batch: { semester }, status: 'ACTIVE' }, orderBy: { startAt: 'asc' } });
     const [a, b] = sessions;
-    const err = await schedule.updateSession(b.id, { startAt: a.startAt.toISOString(), endAt: a.endAt.toISOString() }).then(() => null, (e) => e);
+    const err = await schedule.updateSession(admin, b.id, { startAt: a.startAt.toISOString(), endAt: a.endAt.toISOString() }).then(() => null, (e) => e);
     expect([err.status, err.code]).toEqual([409, 'ROOM_CONFLICT']);
     // Chuyển sang 15:00 đến 16:00, giờ không có lớp nào nên sửa được.
     const free = { startAt: fromVN(2027, 1, 4, 15).toISOString(), endAt: fromVN(2027, 1, 4, 16).toISOString() };
-    await expect(schedule.updateSession(a.id, free)).resolves.toMatchObject({ id: a.id, ...free });
+    await expect(schedule.updateSession(admin, a.id, free)).resolves.toMatchObject({ id: a.id, ...free });
   });
 
   test('khung tiết đọc đúng từ cơ sở dữ liệu', async () => {
