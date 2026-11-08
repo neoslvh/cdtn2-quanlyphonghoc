@@ -3,12 +3,16 @@ const express = require('express');
 const { authRoutes } = require('./auth');
 const { ApiError } = require('./errors');
 const { createGuards } = require('./guards');
+const { auditRoutes } = require('./routes/audit');
 const { availabilityRoutes } = require('./routes/availability');
+const { notificationRoutes } = require('./routes/notifications');
 const { requestRoutes } = require('./routes/requests');
 const { roomRoutes } = require('./routes/rooms');
 const { scheduleRoutes } = require('./routes/schedule');
 const { createDiskStorage } = require('./storage');
+const { createAuditService } = require('./services/auditService');
 const { createAvailabilityService } = require('./services/availabilityService');
+const { createNotificationService } = require('./services/notificationService');
 const { createRequestService } = require('./services/requestService');
 const { createScheduleService } = require('./services/scheduleService');
 const { createRoomService } = require('./services/roomService');
@@ -35,6 +39,8 @@ function createApp({ db, jwtSecret = 'khoa-bi-mat-chi-dung-khi-kiem-thu', bcrypt
   app.use('/api', availabilityRoutes({ service: availability, guards }));
   app.use('/api', requestRoutes({ service: createRequestService({ repo: db, availability, storage, clock }), guards }));
   app.use('/api', scheduleRoutes({ service: createScheduleService({ repo: db, availability }), guards }));
+  app.use('/api', notificationRoutes({ service: createNotificationService(db), guards }));
+  app.use('/api', auditRoutes({ service: createAuditService(db), guards }));
   app.use('/api', roomRoutes({ service: createRoomService(db), guards }));
 
   app.use((err, req, res, next) => {

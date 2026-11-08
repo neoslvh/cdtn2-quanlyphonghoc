@@ -22,9 +22,9 @@ function roomRoutes({ service, guards }) {
 
   router.get('/rooms/:id', requireAuth, async (req, res) => res.json({ room: await service.get(req.params.id) }));
 
-  router.post('/rooms', requireAuth, manage, async (req, res) => res.status(201).json({ room: await service.create(req.body || {}) }));
+  router.post('/rooms', requireAuth, manage, async (req, res) => res.status(201).json({ room: await service.create(req.body || {}, req.user) }));
 
-  router.patch('/rooms/:id', requireAuth, manage, async (req, res) => res.json({ room: await service.update(req.params.id, req.body || {}) }));
+  router.patch('/rooms/:id', requireAuth, manage, async (req, res) => res.json({ room: await service.update(req.params.id, req.body || {}, req.user) }));
 
   return router;
 }

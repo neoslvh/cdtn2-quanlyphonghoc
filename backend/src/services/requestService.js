@@ -74,7 +74,9 @@ function createRequestService({ repo, availability, storage, clock = () => new D
     async create(user, body) {
       const data = checkRequestBody(body);
       await checkRefs(user, data);
-      return toRequest(await repo.createRequest({ ...data, requesterId: user.id }));
+      const created = await repo.createRequest({ ...data, requesterId: user.id });
+      await repo.logAudit({ userId: user.id, action: 'REQUEST_CREATED', entityType: 'usage_request', entityId: created.id, after: { roomId: data.roomId, startAt: data.startAt, endAt: data.endAt, participantCount: data.participantCount } });
+      return toRequest(created);
     },
 
     /** Sửa phiếu khi còn là nháp. Lỗi: NOT_FOUND, INVALID_STATE khi đã gửi. */
@@ -86,6 +88,7 @@ function createRequestService({ repo, availability, storage, clock = () => new D
       const updated = await repo.updateRequest(id, data);
       // null nghĩa là phiếu vừa được gửi hoặc hủy giữa hai bước.
       if (!updated) throw new ApiError(409, 'INVALID_STATE', 'Chỉ sửa được yêu cầu đang ở trạng thái nháp.');
+      await repo.logAudit({ userId: user.id, action: 'REQUEST_UPDATED', entityType: 'usage_request', entityId: id, before: { roomId: current.room.id, startAt: current.startAt, endAt: current.endAt, participantCount: current.participantCount }, after: { roomId: data.roomId, startAt: data.startAt, endAt: data.endAt, participantCount: data.participantCount } });
       return toRequest(updated);
     },
 
@@ -161,15 +164,17 @@ function createRequestService({ repo, availability, storage, clock = () => new D
       const submitted = await repo.submitRequest(id, steps, now);
       // null nghĩa là có yêu cầu khác gửi hoặc hủy phiếu này trước.
       if (!submitted) throw new ApiError(409, 'INVALID_STATE', 'Yêu cầu đã được gửi hoặc hủy.');
+      await repo.logAudit({ userId: user.id, action: 'REQUEST_SUBMITTED', entityType: 'usage_request', entityId: id, before: { status: 'DRAFT' }, after: { status: 'PENDING' } });
       return toRequest(submitted);
     },
 
     /** Hủy phiếu nháp hoặc đang chờ duyệt (FR-09). Lỗi: NOT_FOUND, INVALID_STATE. */
     async cancel(user, id, reason) {
-      await owned(user, id);
+      const before = await owned(user, id);
       const text = typeof reason === 'string' && reason.trim() ? reason.trim().slice(0, 500) : 'Người đăng ký hủy yêu cầu';
       const cancelled = await repo.cancelRequest(id, text, clock());
       if (!cancelled) throw new ApiError(409, 'INVALID_STATE', 'Yêu cầu không còn hủy được.');
+      await repo.logAudit({ userId: user.id, action: 'REQUEST_CANCELLED', entityType: 'usage_request', entityId: id, before: { status: before.status }, after: { status: 'CANCELLED', cancelReason: text } });
       return toRequest(cancelled);
     },
   };

@@ -50,7 +50,7 @@ function createRoomService(repo) {
      * Thêm phòng. Mã tòa suy ra từ mã phòng, tòa chưa có thì tạo, tòa đã có phải khớp cơ sở.
      * Lỗi: VALIDATION_ERROR khi dữ liệu sai, mã trùng hoặc cơ sở không khớp tòa.
      */
-    async create(body) {
+    async create(body, actor) {
       const { campus, ...data } = checkRoom(body);
       if (await repo.findRoomByCode(data.code)) throw dupCode();
       const bCode = buildingCode(data.code);
@@ -70,7 +70,9 @@ function createRoomService(repo) {
       }
       if (!building.campus) building = await repo.setBuildingCampus(building.id, campus);
       try {
-        return toRoom(await repo.createRoom({ ...data, buildingId: building.id }));
+        const created = await repo.createRoom({ ...data, buildingId: building.id });
+        if (actor) await repo.logAudit({ userId: actor.id, action: 'ROOM_CREATED', entityType: 'room', entityId: created.id, after: { code: created.code, status: created.status, capacity: created.capacity } });
+        return toRoom(created);
       } catch (err) {
         // Hai yêu cầu cùng lúc có thể cùng qua bước kiểm tra, ràng buộc unique của cơ sở dữ liệu là chốt chặn cuối.
         if (isUniqueViolation(err)) throw dupCode();
@@ -83,7 +85,7 @@ function createRoomService(repo) {
      * Tòa chưa có cơ sở thì lần sửa đầu gán cơ sở cho tòa.
      * Lỗi: NOT_FOUND, VALIDATION_ERROR.
      */
-    async update(id, body) {
+    async update(id, body, actor) {
       const current = isUuid(id) ? await repo.findRoom(id) : null;
       if (!current) throw notFound();
       if (body.code !== undefined && String(body.code).trim() !== current.code) {
@@ -94,7 +96,9 @@ function createRoomService(repo) {
         throw validation([{ field: 'campus', message: 'Không đổi cơ sở của phòng. Tòa nhà thuộc cơ sở này.' }]);
       }
       if (!current.campus) await repo.setBuildingCampus(current.buildingId, campus);
-      return toRoom(await repo.updateRoom(current.id, data));
+      const updated = await repo.updateRoom(current.id, data);
+      if (actor) await repo.logAudit({ userId: actor.id, action: 'ROOM_UPDATED', entityType: 'room', entityId: current.id, before: { name: current.name, capacity: current.capacity, status: current.status, roomType: current.roomType }, after: { name: updated.name, capacity: updated.capacity, status: updated.status, roomType: updated.roomType } });
+      return toRoom(updated);
     },
   };
 }

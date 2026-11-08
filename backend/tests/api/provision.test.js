@@ -109,7 +109,7 @@ test('đổi mật khẩu: từ chối sai mật khẩu cũ, mật khẩu yếu,
   const ok = await change({ currentPassword: temporaryPassword, newPassword: 'MatKhauMoi99' });
   expect(ok.status).toBe(200);
   expect(ok.body.user.mustChangePassword).toBe(false);
-  expect((await request(app).get('/api/organizations?scope=all').set(bearer(t))).status).toBe(200); // hết bị chặn
+  expect((await request(app).get('/api/organizations?scope=all').set(bearer(ok.body.token))).status).toBe(200); // token mới hết bị chặn
   expect((await login('d@vlu.edu.vn', temporaryPassword)).status).toBe(401);
   expect((await login('d@vlu.edu.vn', 'MatKhauMoi99')).body.user.mustChangePassword).toBe(false);
 });
