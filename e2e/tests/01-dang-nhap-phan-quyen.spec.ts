@@ -33,10 +33,10 @@ test.describe('E2E-01 đăng nhập và đăng xuất', () => {
 
 test.describe('E2E-02 phân quyền theo vai trò (PB-02)', () => {
   const cases = [
-    { who: ACCOUNTS.requester, menu: ['Trang chủ', 'Tra cứu phòng', 'Tạo yêu cầu'], blocked: ['/rooms', '/class-schedule', '/admin/users'], allowed: ['/requests/new', '/rooms/search'] },
-    { who: ACCOUNTS.approver, menu: ['Trang chủ', 'Tra cứu phòng', 'Lịch học chính khóa'], blocked: ['/rooms', '/requests/new', '/admin/users'], allowed: ['/class-schedule', '/rooms/search'] },
-    { who: ACCOUNTS.facility, menu: ['Trang chủ', 'Tra cứu phòng', 'Quản lý phòng'], blocked: ['/class-schedule', '/requests/new', '/admin/users'], allowed: ['/rooms', '/rooms/search'] },
-    { who: ACCOUNTS.admin, menu: ['Trang chủ', 'Tra cứu phòng', 'Quản lý phòng', 'Lịch học chính khóa', 'Tài khoản'], blocked: ['/requests/new'], allowed: ['/rooms', '/class-schedule', '/admin/users'] },
+    { who: ACCOUNTS.requester, menu: ['Trang chủ', 'Tra cứu phòng', 'Tạo yêu cầu', 'Yêu cầu của tôi'], blocked: ['/rooms', '/class-schedule', '/admin/users', '/approvals'], allowed: ['/requests/new', '/requests', '/rooms/search'] },
+    { who: ACCOUNTS.approver, menu: ['Trang chủ', 'Tra cứu phòng', 'Duyệt yêu cầu', 'Lịch học chính khóa'], blocked: ['/rooms', '/requests/new', '/requests', '/admin/users'], allowed: ['/approvals', '/class-schedule', '/rooms/search'] },
+    { who: ACCOUNTS.facility, menu: ['Trang chủ', 'Tra cứu phòng', 'Quản lý phòng'], blocked: ['/class-schedule', '/requests/new', '/requests', '/approvals', '/admin/users'], allowed: ['/rooms', '/rooms/search'] },
+    { who: ACCOUNTS.admin, menu: ['Trang chủ', 'Tra cứu phòng', 'Tất cả yêu cầu', 'Quản lý phòng', 'Lịch học chính khóa', 'Tài khoản'], blocked: ['/requests/new', '/approvals'], allowed: ['/requests', '/rooms', '/class-schedule', '/admin/users'] },
   ];
 
   for (const c of cases) {
