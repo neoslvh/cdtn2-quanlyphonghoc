@@ -7,12 +7,12 @@ Kết quả chạy ngày 07/11/2026 trên nhánh `staging` sau khi gộp PR #18.
 | Tầng | Số ca | Đạt | Không đạt |
 |---|---|---|---|
 | Unit (service) | 78 | 78 | 0 |
-| API (HTTP) | 67 | 67 | 0 |
-| Tích hợp PostgreSQL thật | 19 | 19 | 0 |
+| API (HTTP) | 82 | 82 | 0 |
+| Tích hợp PostgreSQL thật | 28 | 28 | 0 |
 | Giao diện (dữ liệu giả) | 17 | 17 | 0 |
 | Toàn hệ thống (Playwright) | 27 | 27 | 0 |
 | Script Jira | 10 | 10 | 0 |
-| **Tổng** | **218** | **218** | **0** |
+| **Tổng** | **242** | **242** | **0** |
 
 CI của pull request chạy các tầng unit, API, tích hợp, giao diện và script Jira; các PR của Sprint 2 chỉ được tự gộp khi CI đạt. Bộ Playwright chạy tay trên hệ thống dựng từ cơ sở dữ liệu trống bằng Docker, mất 39 giây.
 
@@ -25,6 +25,8 @@ CI của pull request chạy các tầng unit, API, tích hợp, giao diện và
 | Tra cứu phòng trống | FR-06, BR-01, BR-08, BR-10 | Loại phòng bận, đủ sức chứa, đủ thiết bị; buổi học PENDING không chặn phòng; khoảng chạm đầu mút không trùng |
 | Gửi yêu cầu | FR-07, FR-08, BR-02, BR-05, BR-09 | Bảy bước kiểm tra đúng thứ tự bảng 1.7, biên 21:30 và ba ngày làm việc; năm yêu cầu cùng gửi một phiếu chỉ một thành công và chỉ có hai bước duyệt |
 | Tệp đính kèm | FR-07 | Từ chối quá 5 MB, định dạng lạ, nội dung không đúng chữ ký, quá 5 tệp; tệp bị xóa khi lưu bản ghi lỗi |
+| Duyệt phiếu | FR-10, FR-11, SCRUM-13 | Duyệt theo chuỗi đơn vị, đơn vị không đúng bước bị 403; lịch học hoặc lượt đặt xuất hiện sau khi gửi thì bước cuối bị chặn; hai phiếu cùng phòng cùng giờ duyệt đồng thời chỉ một phiếu thành công; năm yêu cầu cùng duyệt một bước chỉ một thành công |
+| Thông báo, nhật ký | FR-14, FR-21 | Thông báo khi lịch học hủy phiếu, khi duyệt và từ chối; nhật ký có người thực hiện, giá trị trước và sau; chỉ ADMIN xem nhật ký |
 | Lịch học chính khóa | FR-23, BR-11, BR-12 | Lỗi từng dòng và từng cột, bản xem trước, xác nhận hủy yêu cầu trùng cùng bước duyệt và lượt đặt trong một giao dịch; năm yêu cầu cùng xác nhận chỉ một thành công |
 | Toàn vẹn dữ liệu | BR-01 | Ràng buộc loại trừ GiST chặn lượt đặt thứ hai chồng giờ, cho phép lượt liền kề; CHECK từ chối trạng thái sai |
 
@@ -45,7 +47,6 @@ Xem `docs/bug-log.md`: ba bug, mỗi bug một commit sửa riêng. Ngoài ra te
 
 ## 5. Hạn chế đã biết
 
-- Duyệt và từ chối yêu cầu chưa làm (Sprint 3), nên phiếu mới chỉ dừng ở trạng thái PENDING và chưa tạo `room_booking`.
 - Chuỗi đơn vị duyệt đang cố định trong mã đến khi có bảng quy tắc duyệt.
 - Chưa đo hiệu năng (NFR-03). Tra cứu phòng trống hiện lọc thiết bị và cắt trang trong bộ nhớ.
 - Sửa buổi học kiểm tra trùng rồi mới ghi ở hai bước, chưa nằm trong một giao dịch (Claude review đã ghi nhận).

@@ -8,12 +8,13 @@
 - FR-03: quản lý phòng, thêm, sửa, đổi trạng thái, không đổi mã phòng và cơ sở.
 - FR-06 và BR-01, BR-08, BR-10: tra cứu phòng trống theo khung giờ, sức chứa, loại phòng, thiết bị.
 - FR-07, FR-08, FR-09 và BR-02, BR-05, BR-09: lập, gửi, hủy yêu cầu sử dụng phòng, bảy bước kiểm tra khi gửi theo bảng 1.7 của API Contract.
+- FR-10, FR-11, FR-14, FR-21: duyệt và từ chối theo chuỗi đơn vị, kiểm tra lại trước cấp cuối, thông báo và nhật ký thao tác.
 - FR-23 và BR-10, BR-11, BR-12: nhập thời khóa biểu của Phòng Đào tạo, xem trước, xác nhận, hủy yêu cầu bị trùng, sửa và hủy buổi học.
 - Tính toàn vẹn ở cơ sở dữ liệu: ràng buộc loại trừ chống hai lượt đặt chồng giờ, CHECK giá trị, truy cập đồng thời.
 
 Chủ ý không kiểm, kèm lý do:
 
-- Duyệt và từ chối yêu cầu, thiết bị, thông báo, nhật ký thao tác: thuộc Sprint 3 và 4.
+- Thiết bị đi kèm phiếu và cập nhật theo thời gian thực: thuộc Sprint 3 và 4.
 - Hiệu năng dưới tải (NFR-03): chưa đo, chỉ có chỉ mục GiST cho truy vấn trùng lịch.
 - Đăng nhập một lần bằng tài khoản trường: chưa tích hợp được.
 
