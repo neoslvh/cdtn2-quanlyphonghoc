@@ -166,3 +166,23 @@ describe('quản lý phòng', () => {
     await fails(call('PATCH', '/rooms/khong-co', room), 404, 'NOT_FOUND');
   });
 });
+
+describe('danh sách và hủy yêu cầu', () => {
+  test('danh sách mới nhất trước, lọc theo trạng thái và phân trang', async () => {
+    const a = await draft({ roomId: 'room-d0201', startAt: nextWeekday(60).format(), endAt: nextWeekday(60).add(2, 'hour').format() });
+    const b = await draft({ roomId: 'room-d0201', startAt: nextWeekday(61).format(), endAt: nextWeekday(61).add(2, 'hour').format() });
+    await call('POST', `/requests/${b.id}/submit`);
+    expect((await call('GET', '/requests')).items.map((r) => r.id)).toEqual([b.id, a.id]);
+    expect((await call('GET', '/requests?status=PENDING')).items.map((r) => r.id)).toEqual([b.id]);
+    expect(await call('GET', '/requests?page=2&pageSize=1')).toMatchObject({ page: 2, pageSize: 1, total: 2 });
+  });
+
+  test('hủy phiếu đang duyệt: các bước chưa xử lý chuyển Đã hủy, lý do rỗng lấy mặc định', async () => {
+    const r = await draft({ roomId: 'room-d0201', startAt: nextWeekday(70).format(), endAt: nextWeekday(70).add(2, 'hour').format() });
+    await call('POST', `/requests/${r.id}/submit`);
+    const { request } = await call('POST', `/requests/${r.id}/cancel`, { reason: '  ' });
+    expect(request).toMatchObject({ status: 'CANCELLED', cancelReason: 'Người đăng ký hủy yêu cầu' });
+    expect(request.steps.map((s) => s.status)).toEqual(['CANCELLED', 'CANCELLED']);
+    await fails(call('POST', `/requests/${r.id}/cancel`, {}), 409, 'INVALID_STATE');
+  });
+});

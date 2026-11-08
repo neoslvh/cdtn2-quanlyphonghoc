@@ -1,21 +1,16 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Alert, Button, DatePicker, Form, Input, InputNumber, Result, Select, Steps, Tag, Upload, message } from 'antd';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Alert, Button, DatePicker, Form, Input, InputNumber, Result, Select, Tag, Upload, message } from 'antd';
 import dayjs from 'dayjs';
 import { api } from '../api';
 import { useAuth } from '../auth';
+import { ConflictAlert, StepsView, fmtRange } from '../components';
 import { EQUIPMENT, REQUEST_STATUS } from '../constants';
 
-// Hiện lỗi nghiệp vụ khi gửi yêu cầu. ROOM_CONFLICT kèm nguồn xung đột để người dùng biết đổi giờ hay đổi phòng.
-function ConflictAlert({ error }) {
-  const extra = (error.details || []).map((d, i) => (
-    <li key={i}>{d.source === 'CLASS_SCHEDULE' ? `Lớp ${d.courseCode} (${d.classCode}) trong thời khóa biểu` : `Lượt đặt đã duyệt ${d.requestCode}`}</li>
-  ));
-  return <Alert type="error" showIcon style={{ marginBottom: 16 }} title={error.message} description={extra.length ? <ul style={{ margin: 0, paddingLeft: 18 }}>{extra}</ul> : null} />;
-}
-
 // WF-03: phiếu đề xuất sử dụng phòng (FR-07). Lưu nháp chỉ kiểm tra định dạng, gửi mới kiểm tra toàn bộ quy tắc ở máy chủ.
+// Có tham số id trên đường dẫn thì là sửa một phiếu nháp đã lưu (SCRUM-14).
 export default function RequestForm() {
+  const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { state } = useLocation();
@@ -35,9 +30,27 @@ export default function RequestForm() {
     api('/rooms').then((d) => setRooms(d.items)).catch((e) => setError(e));
   }, []);
   useEffect(() => {
-    if (!orgs.length) return;
+    if (!id) return;
+    api(`/requests/${id}`)
+      .then(({ request: r }) => {
+        if (r.status !== 'DRAFT') return navigate(`/requests/${id}`, { replace: true });
+        setDraft(r);
+        setFiles(r.attachments.map((a) => ({ uid: a.id, name: a.fileName, status: 'done', uploaded: true })));
+        form.setFieldsValue({
+          organizationId: r.organizationId,
+          roomId: r.room.id,
+          purpose: r.purpose,
+          range: [dayjs(r.startAt), dayjs(r.endAt)],
+          participantCount: r.participantCount,
+          equipment: r.equipment.map(({ itemType, quantity, otherDescription }) => ({ itemType, quantity, otherDescription: otherDescription || undefined })),
+        });
+      })
+      .catch((e) => setError(e));
+  }, [id, form, navigate]);
+  useEffect(() => {
+    if (!orgs.length || id) return;
     form.setFieldValue('organizationId', orgs.find((o) => o.id === user.organization?.id)?.id);
-  }, [orgs, form, user]);
+  }, [orgs, form, user, id]);
 
   const initial = {
     roomId: state?.roomId,
@@ -110,18 +123,15 @@ export default function RequestForm() {
         <Result
           status="success"
           title={`Đã gửi yêu cầu ${sent.code}`}
-          subTitle={<>Trạng thái: <Tag color={color}>{label}</Tag> Phòng {sent.room.code}, {dayjs(sent.startAt).format('HH:mm DD/MM/YYYY')} đến {dayjs(sent.endAt).format('HH:mm')}</>}
+          subTitle={<>Trạng thái: <Tag color={color}>{label}</Tag> Phòng {sent.room.code}, {fmtRange(sent.startAt, sent.endAt)}</>}
           extra={[
-            <Button key="new" type="primary" onClick={() => navigate('/rooms/search')}>Tra cứu phòng khác</Button>,
+            <Button key="view" type="primary" onClick={() => navigate(`/requests/${sent.id}`)}>Xem yêu cầu</Button>,
+            <Button key="new" onClick={() => navigate('/rooms/search')}>Tra cứu phòng khác</Button>,
           ]}
         />
         <div className="panel">
           <h2>Tiến độ duyệt</h2>
-          <Steps
-            orientation="vertical"
-            current={0}
-            items={sent.steps.map((s) => ({ title: s.organizationName, content: s.status === 'PENDING' ? 'Đang chờ xử lý' : 'Chưa tới lượt' }))}
-          />
+          <StepsView steps={sent.steps} />
         </div>
       </div>
     );
@@ -130,7 +140,7 @@ export default function RequestForm() {
   return (
     <>
       <section className="app-band">
-        <h1>Phiếu đề xuất sử dụng phòng</h1>
+        <h1>{draft && id ? `Sửa phiếu ${draft.code}` : 'Phiếu đề xuất sử dụng phòng'}</h1>
         <p>Điền thông tin, lưu nháp để làm tiếp sau hoặc gửi để các đơn vị duyệt.</p>
       </section>
       <div className="app-content">
@@ -217,6 +227,7 @@ export default function RequestForm() {
               fileList={files}
               beforeUpload={() => false}
               onChange={({ fileList }) => setFiles(fileList)}
+              onRemove={(f) => !f.uploaded}
               accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
             >
               <Button>Chọn tệp</Button>
@@ -225,7 +236,7 @@ export default function RequestForm() {
           </div>
 
           <div className="form-actions">
-            <Button onClick={() => navigate('/')}>Hủy</Button>
+            <Button onClick={() => navigate(id ? `/requests/${id}` : '/')}>Hủy</Button>
             <Button onClick={() => run('draft')} loading={busy}>Lưu nháp</Button>
             <Button type="primary" onClick={() => run('submit')} loading={busy}>Gửi đề xuất</Button>
           </div>

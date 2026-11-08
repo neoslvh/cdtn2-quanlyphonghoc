@@ -5,10 +5,10 @@ import { ROLE_LABEL } from './Shell';
 
 // Lối tắt theo vai trò. Mục có `to` đã làm xong, mục còn lại hiện kèm sprint dự kiến.
 const TILES = {
-  REQUESTER: [['Tra cứu phòng trống', 'Tìm phòng còn trống theo khung giờ và thiết bị', '/rooms/search'], ['Tạo yêu cầu đăng ký', 'Lập phiếu đề xuất sử dụng phòng', '/requests/new'], ['Theo dõi yêu cầu', 'Sprint 3']],
+  REQUESTER: [['Tra cứu phòng trống', 'Tìm phòng còn trống theo khung giờ và thiết bị', '/rooms/search'], ['Tạo yêu cầu đăng ký', 'Lập phiếu đề xuất sử dụng phòng', '/requests/new'], ['Theo dõi yêu cầu', 'Xem trạng thái, sửa nháp và hủy yêu cầu', '/requests']],
   APPROVER: [['Tra cứu phòng trống', 'Xem phòng còn trống', '/rooms/search'], ['Duyệt yêu cầu', 'Sprint 3']],
   FACILITY_STAFF: [['Tra cứu phòng trống', 'Xem phòng còn trống', '/rooms/search'], ['Quản lý thiết bị', 'Sprint 3']],
-  ADMIN: [['Tra cứu phòng trống', 'Xem phòng còn trống', '/rooms/search'], ['Quy tắc duyệt', 'Sprint 5']],
+  ADMIN: [['Tra cứu phòng trống', 'Xem phòng còn trống', '/rooms/search'], ['Tất cả yêu cầu', 'Xem trạng thái mọi yêu cầu', '/requests'], ['Quy tắc duyệt', 'Sprint 5']],
 };
 
 export default function Home() {

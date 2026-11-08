@@ -295,7 +295,16 @@ const routes = [
     requests.push(r);
     return { request: saveRequest(r, b) };
   }),
+  route('GET', '/requests', (m, q) => paginate(requests.filter((r) => !q.get('status') || r.status === q.get('status')).slice().reverse(), q)),
   route('GET', '/requests/([^/]+)', (m) => ({ request: findRequest(m[1]) })),
+  route('POST', '/requests/([^/]+)/cancel', (m, q, b) => {
+    const r = findRequest(m[1]);
+    if (!['DRAFT', 'PENDING'].includes(r.status)) throw new ApiError(409, 'INVALID_STATE', 'Yêu cầu không còn hủy được.');
+    r.status = 'CANCELLED';
+    r.cancelReason = (b && String(b.reason || '').trim()) || 'Người đăng ký hủy yêu cầu';
+    r.steps = r.steps.map((s) => (['PENDING', 'WAITING'].includes(s.status) ? { ...s, status: 'CANCELLED' } : s));
+    return { request: r };
+  }),
   route('PATCH', '/requests/([^/]+)', (m, q, b) => {
     const r = findRequest(m[1]);
     if (r.status !== 'DRAFT') throw new ApiError(409, 'INVALID_STATE', 'Chỉ sửa được yêu cầu đang ở trạng thái nháp.');
