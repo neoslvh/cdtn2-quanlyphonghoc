@@ -1,5 +1,6 @@
 // Tầng repository: khung tiết, lần nhập thời khóa biểu và các buổi học. Không chứa quy tắc nghiệp vụ.
 const { Prisma } = require('@prisma/client');
+const { audit, notify } = require('./common');
 
 // Giao dịch dài (xác nhận nhập) có thể phải chờ giao dịch khác nhả khóa dòng, nên cho chờ lấy kết nối lâu hơn mặc định 2 giây
 // để các yêu cầu cùng lúc xếp hàng và nhận INVALID_STATE thay vì lỗi hết thời gian chờ (P2028).
@@ -47,6 +48,7 @@ function createScheduleRepo(prisma) {
         const batch = await tx.importBatch.create({ data: { importedBy, semester, mode, fileName, status: 'PREVIEW', rowCount, sessionCount: sessions.length, conflictCount: 0 } });
         await tx.classSchedule.createMany({ data: sessions.map((s) => ({ batchId: batch.id, roomId: s.roomId, courseCode: s.courseCode, courseName: s.courseName, classCode: s.classCode, startAt: s.startAt, endAt: s.endAt, status: 'PENDING' })) });
         const conflicts = await conflictsOf(tx, batch.id);
+        await audit(tx, { userId: importedBy, action: 'SCHEDULE_IMPORT_PREVIEWED', entityType: 'import_batch', entityId: batch.id, after: { semester, mode, fileName, rowCount, sessionCount: sessions.length, conflictCount: conflicts.length } });
         return { batch: flatBatch(await tx.importBatch.update({ where: { id: batch.id }, data: { conflictCount: conflicts.length } })), conflicts };
       }, TX),
 
@@ -61,11 +63,12 @@ function createScheduleRepo(prisma) {
     },
 
     /** Hủy bản xem trước: chỉ khi còn PREVIEW. Xóa các buổi học PENDING. Trả true nếu hủy được. */
-    discardBatch: (id) =>
+    discardBatch: (id, actorId) =>
       prisma.$transaction(async (tx) => {
         const { count } = await tx.importBatch.updateMany({ where: { id, status: 'PREVIEW' }, data: { status: 'DISCARDED' } });
         if (!count) return false;
         await tx.classSchedule.deleteMany({ where: { batchId: id, status: 'PENDING' } });
+        await audit(tx, { userId: actorId, action: 'SCHEDULE_IMPORT_DISCARDED', entityType: 'import_batch', entityId: id });
         return true;
       }, TX),
 
@@ -73,7 +76,7 @@ function createScheduleRepo(prisma) {
      * Xác nhận nhập trong một giao dịch (BR-11): tính lại các yêu cầu bị trùng, chuyển buổi học sang ACTIVE, thay thế
      * buổi cũ của học kỳ khi mode REPLACE, hủy các yêu cầu và lượt đặt bị trùng. Trả kết quả, hoặc null nếu không còn PREVIEW.
      */
-    commitBatch: (id, { cancelReason }) =>
+    commitBatch: (id, { cancelReason, actorId }) =>
       prisma.$transaction(async (tx) => {
         const batch = await tx.importBatch.findUnique({ where: { id } });
         const { count } = await tx.importBatch.updateMany({ where: { id, status: 'PREVIEW' }, data: { status: 'COMMITTED', committedAt: new Date() } });
@@ -88,12 +91,18 @@ function createScheduleRepo(prisma) {
         if (ids.length) {
           const now = new Date();
           for (const c of conflicts) {
-            await tx.usageRequest.update({ where: { id: c.requestId }, data: { status: 'CANCELLED', cancelReason: cancelReason(c), cancelledAt: now } });
+            const reason = cancelReason(c);
+            await tx.usageRequest.update({ where: { id: c.requestId }, data: { status: 'CANCELLED', cancelReason: reason, cancelledAt: now } });
+            // BR-11: người đăng ký nhận thông báo kèm lý do, và việc hủy được ghi nhật ký.
+            const owner = await tx.usageRequest.findUnique({ where: { id: c.requestId }, select: { requesterId: true } });
+            await notify(tx, { userId: owner.requesterId, requestId: c.requestId, title: 'Yêu cầu sử dụng phòng bị hủy', message: reason });
+            await audit(tx, { userId: actorId, action: 'REQUEST_CANCELLED_BY_SCHEDULE', entityType: 'usage_request', entityId: c.requestId, before: { status: c.requestStatus }, after: { status: 'CANCELLED', cancelReason: reason, batchId: id } });
           }
           await tx.approvalStep.updateMany({ where: { requestId: { in: ids }, status: { in: ['PENDING', 'WAITING'] } }, data: { status: 'CANCELLED' } });
           await tx.roomBooking.updateMany({ where: { requestId: { in: ids }, status: 'ACTIVE' }, data: { status: 'CANCELLED' } });
         }
         await tx.importBatch.update({ where: { id }, data: { conflictCount: conflicts.length } });
+        await audit(tx, { userId: actorId, action: 'SCHEDULE_IMPORT_COMMITTED', entityType: 'import_batch', entityId: id, after: { semester: batch.semester, mode: batch.mode, activatedSessions: activated, replacedSessions: replaced, cancelledRequests: ids.length } });
         return { activated, replaced, cancelled: conflicts.map((c) => ({ ...c, cancelReason: cancelReason(c) })) };
       }, TX),
 
@@ -112,14 +121,22 @@ function createScheduleRepo(prisma) {
     },
     findSession: async (id) => flatSession(await prisma.classSchedule.findUnique({ where: { id }, include: sessionInclude }).catch(() => null)),
     /** Sửa buổi học chỉ khi còn ACTIVE. Trả buổi mới, hoặc null nếu không còn ACTIVE. */
-    updateSession: async (id, data) => {
-      const { count } = await prisma.classSchedule.updateMany({ where: { id, status: 'ACTIVE' }, data });
-      return count ? flatSession(await prisma.classSchedule.findUnique({ where: { id }, include: sessionInclude })) : null;
-    },
-    cancelSession: async (id) => {
-      const { count } = await prisma.classSchedule.updateMany({ where: { id, status: 'ACTIVE' }, data: { status: 'CANCELLED' } });
-      return count ? flatSession(await prisma.classSchedule.findUnique({ where: { id }, include: sessionInclude })) : null;
-    },
+    updateSession: (id, data, actorId) =>
+      prisma.$transaction(async (tx) => {
+        const before = await tx.classSchedule.findUnique({ where: { id }, include: sessionInclude });
+        const { count } = await tx.classSchedule.updateMany({ where: { id, status: 'ACTIVE' }, data });
+        if (!count) return null;
+        const after = await tx.classSchedule.findUnique({ where: { id }, include: sessionInclude });
+        await audit(tx, { userId: actorId, action: 'CLASS_SESSION_UPDATED', entityType: 'class_schedule', entityId: id, before: { roomCode: before.room.code, startAt: before.startAt, endAt: before.endAt }, after: { roomCode: after.room.code, startAt: after.startAt, endAt: after.endAt } });
+        return flatSession(after);
+      }, TX),
+    cancelSession: (id, actorId) =>
+      prisma.$transaction(async (tx) => {
+        const { count } = await tx.classSchedule.updateMany({ where: { id, status: 'ACTIVE' }, data: { status: 'CANCELLED' } });
+        if (!count) return null;
+        await audit(tx, { userId: actorId, action: 'CLASS_SESSION_CANCELLED', entityType: 'class_schedule', entityId: id, before: { status: 'ACTIVE' }, after: { status: 'CANCELLED' } });
+        return flatSession(await tx.classSchedule.findUnique({ where: { id }, include: sessionInclude }));
+      }, TX),
   };
 }
 

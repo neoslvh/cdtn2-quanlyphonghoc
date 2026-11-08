@@ -32,9 +32,9 @@ function scheduleRoutes({ service, guards }) {
   });
 
   router.get('/class-schedule/imports/:id', ...manage, async (req, res) => res.json(await service.getImport(req.params.id)));
-  router.post('/class-schedule/imports/:id/commit', ...manage, async (req, res) => res.json(await service.commit(req.params.id)));
+  router.post('/class-schedule/imports/:id/commit', ...manage, async (req, res) => res.json(await service.commit(req.user, req.params.id)));
   router.delete('/class-schedule/imports/:id', ...manage, async (req, res) => {
-    await service.discard(req.params.id);
+    await service.discard(req.user, req.params.id);
     res.status(204).end();
   });
 
@@ -46,8 +46,8 @@ function scheduleRoutes({ service, guards }) {
     res.json({ items, ...paging, total });
   });
 
-  router.patch('/class-schedule/:id', ...manage, async (req, res) => res.json({ session: await service.updateSession(req.params.id, req.body || {}) }));
-  router.post('/class-schedule/:id/cancel', ...manage, async (req, res) => res.json({ session: await service.cancelSession(req.params.id) }));
+  router.patch('/class-schedule/:id', ...manage, async (req, res) => res.json({ session: await service.updateSession(req.user, req.params.id, req.body || {}) }));
+  router.post('/class-schedule/:id/cancel', ...manage, async (req, res) => res.json({ session: await service.cancelSession(req.user, req.params.id) }));
 
   return router;
 }

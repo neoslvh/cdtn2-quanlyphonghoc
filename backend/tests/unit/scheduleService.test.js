@@ -135,7 +135,7 @@ describe('xem trước, xác nhận và hủy (BR-11)', () => {
     const ctx = setup();
     const r = withRequest(ctx);
     const p = await ctx.service.createImport(ctx.user, csv([row()]), params);
-    const done = await ctx.service.commit(p.batchId);
+    const done = await ctx.service.commit(ctx.user, p.batchId);
     expect(done).toMatchObject({ status: 'COMMITTED', activatedSessions: 4, replacedSessions: 0 });
     expect(done.cancelledRequests).toEqual([{ id: r.id, requestCode: 'REQ-007', requesterName: expect.any(String), cancelReason: 'Phòng A.10.01 có lớp IT001 (K29-SE01) theo thời khóa biểu mới của Phòng Đào tạo.' }]);
     expect(r.status).toBe('CANCELLED');
@@ -147,11 +147,11 @@ describe('xem trước, xác nhận và hủy (BR-11)', () => {
   test('REPLACE thay buổi ACTIVE cũ của học kỳ, APPEND giữ nguyên buổi cũ', async () => {
     const ctx = setup();
     const first = await ctx.service.createImport(ctx.user, csv([row()]), params);
-    await ctx.service.commit(first.batchId);
+    await ctx.service.commit(ctx.user, first.batchId);
     const append = await ctx.service.createImport(ctx.user, csv([row([[7, 'A.10.02']])]), { ...params, mode: 'APPEND' });
-    expect((await ctx.service.commit(append.batchId)).replacedSessions).toBe(0);
+    expect((await ctx.service.commit(ctx.user, append.batchId)).replacedSessions).toBe(0);
     const replace = await ctx.service.createImport(ctx.user, csv([row([[7, 'A.10.02'], [3, 'K-MOI']])]), params);
-    const done = await ctx.service.commit(replace.batchId);
+    const done = await ctx.service.commit(ctx.user, replace.batchId);
     expect(done.replacedSessions).toBe(8);
     expect(ctx.repo.sessions.filter((s) => s.status === 'ACTIVE').map((s) => s.classCode)).toEqual(['K-MOI', 'K-MOI', 'K-MOI', 'K-MOI']);
   });
@@ -159,10 +159,10 @@ describe('xem trước, xác nhận và hủy (BR-11)', () => {
   test('xác nhận hoặc hủy lần hai INVALID_STATE, hủy xem trước xóa buổi PENDING và phòng không bị chiếm', async () => {
     const ctx = setup();
     const p = await ctx.service.createImport(ctx.user, csv([row()]), params);
-    await ctx.service.discard(p.batchId);
+    await ctx.service.discard(ctx.user, p.batchId);
     expect(ctx.repo.sessions).toHaveLength(0);
-    expect((await fails(ctx.service.discard(p.batchId))).code).toBe('INVALID_STATE');
-    expect((await fails(ctx.service.commit(p.batchId))).code).toBe('INVALID_STATE');
+    expect((await fails(ctx.service.discard(ctx.user, p.batchId))).code).toBe('INVALID_STATE');
+    expect((await fails(ctx.service.commit(ctx.user, p.batchId))).code).toBe('INVALID_STATE');
     expect((await fails(ctx.service.getImport('khong-phai-uuid'))).code).toBe('NOT_FOUND');
   });
 
@@ -178,7 +178,7 @@ describe('xem trước, xác nhận và hủy (BR-11)', () => {
 describe('tra cứu, sửa, hủy buổi học', () => {
   async function active(ctx) {
     const p = await ctx.service.createImport(ctx.user, csv([row()]), params);
-    await ctx.service.commit(p.batchId);
+    await ctx.service.commit(ctx.user, p.batchId);
     return ctx.repo.sessions.filter((s) => s.status === 'ACTIVE');
   }
 
@@ -197,23 +197,23 @@ describe('tra cứu, sửa, hủy buổi học', () => {
   test('sửa giờ và phòng, không được trùng buổi khác hay lượt đặt đã duyệt, không tự trùng với chính nó', async () => {
     const ctx = setup();
     const [s1, s2] = await active(ctx);
-    const moved = await ctx.service.updateSession(s1.id, { startAt: fromVN(2026, 11, 2, 7, 45).toISOString(), endAt: fromVN(2026, 11, 2, 9, 15).toISOString() });
+    const moved = await ctx.service.updateSession(ctx.user, s1.id, { startAt: fromVN(2026, 11, 2, 7, 45).toISOString(), endAt: fromVN(2026, 11, 2, 9, 15).toISOString() });
     expect(moved.startAt).toBe(fromVN(2026, 11, 2, 7, 45).toISOString());
     ctx.repo.bookings.push({ requestId: 'x', roomId: ctx.room2.id, status: 'ACTIVE', startAt: s2.startAt, endAt: s2.endAt, requestNo: 3 });
-    const err = await fails(ctx.service.updateSession(s2.id, { roomCode: 'A.10.02' }));
+    const err = await fails(ctx.service.updateSession(ctx.user, s2.id, { roomCode: 'A.10.02' }));
     expect([err.status, err.code, err.details]).toEqual([409, 'ROOM_CONFLICT', [{ source: 'ROOM_BOOKING', requestCode: 'REQ-003' }]]);
-    expect((await fails(ctx.service.updateSession(s2.id, { roomCode: 'Z.9' }))).details[0].field).toBe('roomCode');
-    expect((await fails(ctx.service.updateSession(s2.id, { endAt: fromVN(2026, 11, 9, 6).toISOString() }))).details[0].field).toBe('endAt');
-    expect((await fails(ctx.service.updateSession(s2.id, {}))).code).toBe('VALIDATION_ERROR');
+    expect((await fails(ctx.service.updateSession(ctx.user, s2.id, { roomCode: 'Z.9' }))).details[0].field).toBe('roomCode');
+    expect((await fails(ctx.service.updateSession(ctx.user, s2.id, { endAt: fromVN(2026, 11, 9, 6).toISOString() }))).details[0].field).toBe('endAt');
+    expect((await fails(ctx.service.updateSession(ctx.user, s2.id, {}))).code).toBe('VALIDATION_ERROR');
   });
 
   test('hủy buổi học, hủy lần hai và sửa buổi đã hủy đều INVALID_STATE, id lạ NOT_FOUND', async () => {
     const ctx = setup();
     const [s1] = await active(ctx);
-    expect((await ctx.service.cancelSession(s1.id)).status).toBe('CANCELLED');
-    expect((await fails(ctx.service.cancelSession(s1.id))).code).toBe('INVALID_STATE');
-    expect((await fails(ctx.service.updateSession(s1.id, { roomCode: 'A.10.02' }))).code).toBe('INVALID_STATE');
-    expect((await fails(ctx.service.cancelSession('abc'))).code).toBe('NOT_FOUND');
+    expect((await ctx.service.cancelSession(ctx.user, s1.id)).status).toBe('CANCELLED');
+    expect((await fails(ctx.service.cancelSession(ctx.user, s1.id))).code).toBe('INVALID_STATE');
+    expect((await fails(ctx.service.updateSession(ctx.user, s1.id, { roomCode: 'A.10.02' }))).code).toBe('INVALID_STATE');
+    expect((await fails(ctx.service.cancelSession(ctx.user, 'abc'))).code).toBe('NOT_FOUND');
   });
 
   test('khung tiết trả đủ 12 tiết', async () => {

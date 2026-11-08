@@ -17,6 +17,8 @@ function fakeDb() {
   const sessions = [];
   const requests = [];
   const batches = [];
+  const audit = [];
+  const notifications = [];
   let requestNo = 0;
   const bookings = [];
   const overlaps = (x, from, to) => x.startAt < to && from < x.endAt;
@@ -42,6 +44,8 @@ function fakeDb() {
     bookings,
     requests,
     batches,
+    audit,
+    notifications,
     countRooms: async () => rooms.length,
     findOrganization: async (oid) => ORGS.find((o) => o.id === oid) || null,
     listOrganizations: async () => ORGS,
@@ -59,6 +63,23 @@ function fakeDb() {
       const b = bookings.find((x) => x.roomId === roomId && x.status === 'ACTIVE' && overlaps(x, from, to) && (!excludeRequestId || x.requestId !== excludeRequestId));
       return b ? { source: 'ROOM_BOOKING', requestNo: b.requestNo } : null;
     },
+    // nhật ký và thông báo
+    logAudit: async (entry) => { audit.push({ ...entry, createdAt: new Date() }); },
+    listAudit: async ({ entityType, entityId, userId, action, page, pageSize }) => {
+      const all = audit.filter((a) => (!entityType || a.entityType === entityType) && (!entityId || a.entityId === entityId) && (!userId || a.userId === userId) && (!action || a.action === action)).map((a, i) => ({ id: `a-${i}`, createdAt: new Date(), beforeData: a.before, afterData: a.after, user: null, ...a }));
+      return { items: all.slice().reverse().slice((page - 1) * pageSize, page * pageSize), total: all.length };
+    },
+    listNotifications: async ({ userId, unread, page, pageSize }) => {
+      const mine = notifications.filter((n) => n.userId === userId);
+      const all = mine.filter((n) => !unread || !n.readAt);
+      return { items: all.slice((page - 1) * pageSize, page * pageSize), total: all.length, unread: mine.filter((n) => !n.readAt).length };
+    },
+    markNotificationRead: async (userId, nid) => {
+      const n = notifications.find((x) => x.id === nid && x.userId === userId);
+      if (n && !n.readAt) n.readAt = new Date();
+      return n || null;
+    },
+    markAllNotificationsRead: async (userId) => notifications.filter((n) => n.userId === userId && !n.readAt).map((n) => { n.readAt = new Date(); }).length,
     // thời khóa biểu
     listPeriodSlots: async () => {
       const f = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
@@ -74,19 +95,21 @@ function fakeDb() {
       for (const x of list) sessions.push({ id: `30000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`, batchId: batch.id, roomCode: rooms.find((r) => r.id === x.roomId).code, status: 'PENDING', ...x });
       const conflicts = conflictsOf(batch.id);
       batch.conflictCount = conflicts.length;
+      audit.push({ userId: importedBy, action: 'SCHEDULE_IMPORT_PREVIEWED', entityType: 'import_batch', entityId: batch.id });
       return { batch, conflicts };
     },
     findBatch: async (bid) => batches.find((b) => b.id === bid) || null,
     batchConflicts: async (bid) => conflictsOf(bid),
     listBatches: async ({ page, pageSize }) => ({ items: batches.slice().reverse().slice((page - 1) * pageSize, page * pageSize), total: batches.length }),
-    discardBatch: async (bid) => {
+    discardBatch: async (bid, actorId) => {
       const b = batches.find((x) => x.id === bid);
       if (b.status !== 'PREVIEW') return false;
       b.status = 'DISCARDED';
+      audit.push({ userId: actorId, action: 'SCHEDULE_IMPORT_DISCARDED', entityType: 'import_batch', entityId: bid });
       for (let i = sessions.length - 1; i >= 0; i--) if (sessions[i].batchId === bid && sessions[i].status === 'PENDING') sessions.splice(i, 1);
       return true;
     },
-    commitBatch: async (bid, { cancelReason }) => {
+    commitBatch: async (bid, { cancelReason, actorId }) => {
       const b = batches.find((x) => x.id === bid);
       if (b.status !== 'PREVIEW') return null;
       b.status = 'COMMITTED';
@@ -106,7 +129,10 @@ function fakeDb() {
         r.cancelReason = cancelReason(c);
         r.steps = r.steps.map((st) => ({ ...st, status: 'CANCELLED' }));
         for (const bk of bookings) if (bk.requestId === r.id) bk.status = 'CANCELLED';
+        notifications.push({ id: `40000000-0000-4000-8000-${String(++seq).padStart(12, "0")}`, userId: r.requesterId, requestId: r.id, title: 'Yêu cầu sử dụng phòng bị hủy', message: cancelReason(c), readAt: null, createdAt: new Date() });
+        audit.push({ userId: actorId, action: 'REQUEST_CANCELLED_BY_SCHEDULE', entityType: 'usage_request', entityId: r.id });
       }
+      audit.push({ userId: actorId, action: 'SCHEDULE_IMPORT_COMMITTED', entityType: 'import_batch', entityId: bid });
       return { activated, replaced, cancelled: conflicts.map((c) => ({ ...c, cancelReason: cancelReason(c) })) };
     },
     listSessions: async ({ roomCode, from, to, status, page, pageSize }) => {
@@ -116,16 +142,18 @@ function fakeDb() {
       return { items: all.slice((page - 1) * pageSize, page * pageSize), total: all.length };
     },
     findSession: async (sid) => sessions.find((x) => x.id === sid) || null,
-    updateSession: async (sid, data) => {
+    updateSession: async (sid, data, actorId) => {
       const x = sessions.find((y) => y.id === sid);
       if (x.status !== 'ACTIVE') return null;
+      audit.push({ userId: actorId, action: 'CLASS_SESSION_UPDATED', entityType: 'class_schedule', entityId: sid });
       Object.assign(x, { roomId: data.roomId, roomCode: rooms.find((r) => r.id === data.roomId).code, startAt: data.startAt, endAt: data.endAt });
       return x;
     },
-    cancelSession: async (sid) => {
+    cancelSession: async (sid, actorId) => {
       const x = sessions.find((y) => y.id === sid);
       if (x.status !== 'ACTIVE') return null;
       x.status = 'CANCELLED';
+      audit.push({ userId: actorId, action: 'CLASS_SESSION_CANCELLED', entityType: 'class_schedule', entityId: sid });
       return x;
     },
     // phiếu đề xuất

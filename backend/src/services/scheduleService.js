@@ -109,9 +109,10 @@ function createScheduleService({ repo, availability }) {
      * kèm lý do ghi rõ lớp học gây trùng (BR-11). Tất cả trong một giao dịch.
      * Lỗi: NOT_FOUND, INVALID_STATE khi lần nhập không còn ở trạng thái xem trước.
      */
-    async commit(id) {
+    async commit(user, id) {
       await batchOrFail(id);
       const result = await repo.commitBatch(id, {
+        actorId: user.id,
         cancelReason: (c) => `Phòng ${c.roomCode} có lớp ${c.courseCode} (${c.classCode}) theo thời khóa biểu mới của Phòng Đào tạo.`,
       });
       if (!result) throw new ApiError(409, 'INVALID_STATE', 'Lần nhập này không còn ở trạng thái xem trước.');
@@ -125,9 +126,9 @@ function createScheduleService({ repo, availability }) {
     },
 
     /** Hủy bản xem trước. Lỗi: NOT_FOUND, INVALID_STATE. */
-    async discard(id) {
+    async discard(user, id) {
       await batchOrFail(id);
-      if (!(await repo.discardBatch(id))) throw new ApiError(409, 'INVALID_STATE', 'Lần nhập này không còn ở trạng thái xem trước.');
+      if (!(await repo.discardBatch(id, user.id))) throw new ApiError(409, 'INVALID_STATE', 'Lần nhập này không còn ở trạng thái xem trước.');
     },
 
     /** Tra cứu buổi học theo phòng, khoảng ngày (yyyy-mm-dd) và trạng thái. Mặc định không hiện buổi PENDING của bản xem trước. */
@@ -148,7 +149,7 @@ function createScheduleService({ repo, availability }) {
      * Sửa giờ hoặc phòng của một buổi học đang ACTIVE. Phòng và giờ mới không được trùng buổi học khác hay lượt đặt đã duyệt.
      * Lỗi: NOT_FOUND, VALIDATION_ERROR, INVALID_STATE, ROOM_CONFLICT.
      */
-    async updateSession(id, body) {
+    async updateSession(user, id, body) {
       const current = isUuid(id) ? await repo.findSession(id) : null;
       if (!current) throw notFound('buổi học');
       const patch = checkSessionPatch(body);
@@ -161,16 +162,16 @@ function createScheduleService({ repo, availability }) {
       if (!room) throw validation([{ field: 'roomCode', message: 'Phòng không tồn tại.' }]);
       const conflicts = await availability.conflictDetails(room, startAt, endAt, { excludeSessionId: id });
       if (conflicts.length) throw new ApiError(409, 'ROOM_CONFLICT', `Phòng ${roomCode} đã có lớp học hoặc lượt đặt trong khung giờ này.`, conflicts);
-      const updated = await repo.updateSession(id, { roomId: room, startAt, endAt });
+      const updated = await repo.updateSession(id, { roomId: room, startAt, endAt }, user.id);
       if (!updated) throw new ApiError(409, 'INVALID_STATE', 'Chỉ sửa được buổi học đang hiệu lực.');
       return toSession(updated);
     },
 
     /** Hủy một buổi học (nghỉ, học bù). Lỗi: NOT_FOUND, INVALID_STATE. */
-    async cancelSession(id) {
+    async cancelSession(user, id) {
       const current = isUuid(id) ? await repo.findSession(id) : null;
       if (!current) throw notFound('buổi học');
-      const cancelled = await repo.cancelSession(id);
+      const cancelled = await repo.cancelSession(id, user.id);
       if (!cancelled) throw new ApiError(409, 'INVALID_STATE', 'Chỉ hủy được buổi học đang hiệu lực.');
       return toSession(cancelled);
     },

@@ -4,4 +4,11 @@ const missing = (err) => {
   throw err;
 };
 
-module.exports = { missing };
+// Ghi nhật ký thao tác (FR-21) và thông báo (FR-14). client là prisma hoặc tx trong một giao dịch, để nhật ký và
+// thao tác chính cùng thành công hoặc cùng không xảy ra.
+const audit = (client, { userId = null, action, entityType, entityId, before, after }) =>
+  client.auditLog.create({ data: { userId, action, entityType, entityId, beforeData: before ?? undefined, afterData: after ?? undefined } });
+
+const notify = (client, { userId, requestId = null, title, message }) => client.notification.create({ data: { userId, requestId, title, message } });
+
+module.exports = { missing, audit, notify };
