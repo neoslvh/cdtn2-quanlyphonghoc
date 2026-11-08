@@ -15,11 +15,15 @@ export function useUnreadCount() {
   }, []);
   useEffect(() => {
     refresh();
-    const timer = setInterval(refresh, REFRESH_MS);
+    // Tab đang ẩn thì không gọi API; khi người dùng quay lại tab thì tải ngay.
+    const tick = () => document.visibilityState === 'visible' && refresh();
+    const timer = setInterval(tick, REFRESH_MS);
     window.addEventListener(CHANGED, refresh);
+    document.addEventListener('visibilitychange', tick);
     return () => {
       clearInterval(timer);
       window.removeEventListener(CHANGED, refresh);
+      document.removeEventListener('visibilitychange', tick);
     };
   }, [refresh]);
   return unread;
