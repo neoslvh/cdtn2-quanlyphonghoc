@@ -21,10 +21,12 @@ export default function MyRequests() {
     const p = new URLSearchParams({ page, pageSize: 10 });
     if (status) p.set('status', status);
     setLoading(true);
+    let ignore = false;
     api(`/requests?${p}`)
-      .then((d) => { setData(d); setError(null); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+      .then((d) => { if (!ignore) { setData(d); setError(null); } })
+      .catch((e) => { if (!ignore) setError(e.message); })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
   }, [status, page]);
 
   const columns = [

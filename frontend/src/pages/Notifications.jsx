@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, Button, Empty, Pagination, Segmented, Tag } from 'antd';
 import dayjs from 'dayjs';
@@ -17,12 +17,15 @@ export default function Notifications() {
   // Người duyệt không có trang chi tiết yêu cầu nên không hiện liên kết.
   const canOpenRequest = ['REQUESTER', 'ADMIN', 'FACILITY_STAFF'].includes(user.role);
 
+  const latest = useRef(0);
+  // Chỉ lần gọi mới nhất được ghi vào bảng, phản hồi cũ đến muộn bị bỏ.
   const load = useCallback(() => {
+    const mine = ++latest.current;
     setLoading(true);
     return api(`/notifications?page=${page}&pageSize=10${filter === 'unread' ? '&unread=true' : ''}`)
-      .then((d) => { setData(d); setError(null); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+      .then((d) => { if (mine === latest.current) { setData(d); setError(null); } })
+      .catch((e) => { if (mine === latest.current) setError(e.message); })
+      .finally(() => { if (mine === latest.current) setLoading(false); });
   }, [page, filter]);
   useEffect(() => { load(); }, [load]);
 

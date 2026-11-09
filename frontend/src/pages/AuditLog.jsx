@@ -25,10 +25,13 @@ export default function AuditLog() {
     const p = new URLSearchParams({ page, pageSize: 20 });
     Object.entries(filter).forEach(([k, v]) => v && p.set(k, v));
     setLoading(true);
+    // Đổi bộ lọc nhanh thì phản hồi của lần gọi cũ bị bỏ, không ghi đè kết quả của bộ lọc mới.
+    let ignore = false;
     api(`/audit-logs?${p}`)
-      .then((d) => { setData(d); setError(null); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+      .then((d) => { if (!ignore) { setData(d); setError(null); } })
+      .catch((e) => { if (!ignore) setError(e.message); })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
   }, [filter, page]);
 
   const setF = (key) => (value) => { setPage(1); setFilter((f) => ({ ...f, [key]: value || undefined })); };
