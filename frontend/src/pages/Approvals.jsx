@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Descriptions, Drawer, Input, Modal, Table, Tag, message } from 'antd';
 import { api } from '../api';
 import { ConflictAlert, StepsView, fmtRange, pendingOrg } from '../components';
@@ -18,12 +18,15 @@ export default function Approvals() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
 
+  const latest = useRef(0);
+  // Chỉ lần gọi mới nhất được ghi vào bảng, phản hồi cũ đến muộn bị bỏ.
   const load = useCallback(() => {
+    const mine = ++latest.current;
     setLoading(true);
     return api(`/approvals?page=${page}&pageSize=10`)
-      .then((d) => { setData(d); setError(null); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+      .then((d) => { if (mine === latest.current) { setData(d); setError(null); } })
+      .catch((e) => { if (mine === latest.current) setError(e.message); })
+      .finally(() => { if (mine === latest.current) setLoading(false); });
   }, [page]);
   useEffect(() => { load(); }, [load]);
 
