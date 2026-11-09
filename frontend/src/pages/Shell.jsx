@@ -29,6 +29,7 @@ export default function Shell() {
           {canManageRooms(user) && <NavLink to="/rooms" end>Quản lý phòng</NavLink>}
           {canManageSchedule(user) && <NavLink to="/class-schedule">Lịch học chính khóa</NavLink>}
           {user.role === 'ADMIN' && <NavLink to="/admin/users">Tài khoản</NavLink>}
+          {user.role === 'ADMIN' && <NavLink to="/admin/audit">Nhật ký</NavLink>}
         </nav>
         <div className="app-user">
           <div>

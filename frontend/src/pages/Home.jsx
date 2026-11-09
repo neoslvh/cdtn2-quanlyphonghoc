@@ -8,7 +8,7 @@ const TILES = {
   REQUESTER: [['Tra cứu phòng trống', 'Tìm phòng còn trống theo khung giờ và thiết bị', '/rooms/search'], ['Tạo yêu cầu đăng ký', 'Lập phiếu đề xuất sử dụng phòng', '/requests/new'], ['Theo dõi yêu cầu', 'Xem trạng thái, sửa nháp và hủy yêu cầu', '/requests']],
   APPROVER: [['Tra cứu phòng trống', 'Xem phòng còn trống', '/rooms/search'], ['Duyệt yêu cầu', 'Xử lý các yêu cầu đang chờ đơn vị của bạn', '/approvals']],
   FACILITY_STAFF: [['Tra cứu phòng trống', 'Xem phòng còn trống', '/rooms/search'], ['Quản lý thiết bị', 'Sprint 3']],
-  ADMIN: [['Tra cứu phòng trống', 'Xem phòng còn trống', '/rooms/search'], ['Tất cả yêu cầu', 'Xem trạng thái mọi yêu cầu', '/requests'], ['Quy tắc duyệt', 'Sprint 5']],
+  ADMIN: [['Tra cứu phòng trống', 'Xem phòng còn trống', '/rooms/search'], ['Tất cả yêu cầu', 'Xem trạng thái mọi yêu cầu', '/requests'], ['Nhật ký thao tác', 'Tra cứu ai làm gì, lúc nào, trước và sau thay đổi', '/admin/audit'], ['Quy tắc duyệt', 'Sprint 5']],
 };
 
 export default function Home() {
