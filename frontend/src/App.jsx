@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { Spin } from 'antd';
 import { useAuth } from './auth';
 import AdminUsers from './pages/AdminUsers';
+import AuditLog from './pages/AuditLog';
 import Approvals from './pages/Approvals';
 import { canManageRooms, canManageSchedule } from './constants';
 import ChangePassword from './pages/ChangePassword';
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="requests/:id" element={<Protected roles={['REQUESTER', 'ADMIN', 'FACILITY_STAFF']}><RequestDetail /></Protected>} />
           <Route path="requests/:id/edit" element={<Protected roles={['REQUESTER']}><RequestForm /></Protected>} />
           <Route path="class-schedule" element={<Protected allow={canManageSchedule}><ClassSchedule /></Protected>} />
+          <Route path="admin/audit" element={<Protected roles={['ADMIN']}><AuditLog /></Protected>} />
           <Route path="admin/users" element={<Protected roles={['ADMIN']}><AdminUsers /></Protected>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
