@@ -63,6 +63,14 @@ function createApp({ db, jwtSecret = 'khoa-bi-mat-chi-dung-khi-kiem-thu', bcrypt
     res.status(500).json({ message: 'Lỗi máy chủ' });
   });
 
+  // Khi triển khai một dịch vụ duy nhất, server cũng phục vụ bản React đã build.
+  // Chỉ bật khi CLIENT_DIST_DIR được thiết lập để môi trường API cục bộ và test HTTP giữ nguyên hành vi.
+  const clientDistDir = process.env.CLIENT_DIST_DIR;
+  if (clientDistDir) {
+    app.use(express.static(clientDistDir));
+    app.get(/^(?!\/api(?:\/|$)).*/, (req, res) => res.sendFile('index.html', { root: clientDistDir }));
+  }
+
   return app;
 }
 
