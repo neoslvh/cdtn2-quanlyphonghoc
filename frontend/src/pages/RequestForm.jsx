@@ -73,11 +73,17 @@ export default function RequestForm() {
   // Khi đổi sang một phòng khác, thêm sẵn từng loại thiết bị hiện có để người dùng chỉ cần điều chỉnh số lượng cần dùng.
   useEffect(() => {
     if (!room || autoFilledRoomId.current === room.id || (id && !draft)) return;
-    form.setFieldValue('equipment', Object.entries(room.equipment || {})
-      .filter(([, quantity]) => quantity > 0)
-      .map(([itemType]) => ({ itemType, quantity: 1 })));
+    const currentEquipment = form.getFieldValue('equipment') || [];
+    const equipment = currentEquipment.length
+      ? currentEquipment
+        .filter((item) => item?.itemType === 'OTHER' || roomEquipment[item?.itemType] > 0)
+        .map((item) => item.itemType === 'OTHER' ? item : { ...item, quantity: Math.min(item.quantity || 1, roomEquipment[item.itemType]) })
+      : Object.entries(roomEquipment)
+        .filter(([, quantity]) => quantity > 0)
+        .map(([itemType]) => ({ itemType, quantity: 1 }));
+    form.setFieldValue('equipment', equipment);
     autoFilledRoomId.current = room.id;
-  }, [room, id, draft, form]);
+  }, [room, roomEquipment, id, draft, form]);
 
   const payload = (v) => ({
     organizationId: v.organizationId,
