@@ -107,6 +107,10 @@ function validateRequest(b) {
   if (!Number.isInteger(b.participantCount) || b.participantCount < 1) details.push({ field: 'participantCount', message: 'Nhập số người tham dự.' });
   const room = rooms.find((r) => r.id === b.roomId);
   (b.equipment || []).forEach((e, i) => {
+    if (e.itemType === 'OTHER') {
+      if (!String(e.otherDescription || '').trim()) details.push({ field: `equipment.${i}.otherDescription`, message: 'Mô tả thiết bị khác.' });
+      return;
+    }
     const available = room?.equipment?.[e.itemType] || 0;
     if (!available) details.push({ field: `equipment.${i}.itemType`, message: `Phòng ${room?.code || ''} không có loại thiết bị này khả dụng.` });
     else if (e.quantity > available) details.push({ field: `equipment.${i}.quantity`, message: `Phòng ${room.code} chỉ có ${available} thiết bị loại này.` });

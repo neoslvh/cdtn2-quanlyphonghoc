@@ -209,23 +209,31 @@ export default function RequestForm() {
                     const itemType = equipmentValues[name]?.itemType;
                     const available = roomEquipment[itemType] || 0;
                     const usedTypes = new Set(equipmentValues.filter((_, index) => index !== name).map((item) => item?.itemType));
+                    const equipmentOptions = [
+                      ...Object.entries(roomEquipment).filter(([, quantity]) => quantity > 0).map(([value, quantity]) => ({ value, label: `${EQUIPMENT[value] || value} (có ${quantity})`, disabled: usedTypes.has(value) })),
+                      { value: 'OTHER', label: EQUIPMENT.OTHER, disabled: usedTypes.has('OTHER') },
+                    ];
+                    const maxQuantity = itemType === 'OTHER' ? 50 : available || 1;
                     return (
                     <div className="form-row" key={key}>
                       <Form.Item name={[name, 'itemType']} rules={[{ required: true, message: 'Chọn thiết bị' }]} className="grow2">
-                        <Select size="large" disabled={!room} placeholder="Loại thiết bị" options={Object.entries(roomEquipment).filter(([, quantity]) => quantity > 0).map(([value, quantity]) => ({ value, label: `${EQUIPMENT[value] || value} (có ${quantity})`, disabled: usedTypes.has(value) }))} />
+                        <Select size="large" disabled={!room} placeholder="Loại thiết bị" options={equipmentOptions} />
                       </Form.Item>
-                      <Form.Item name={[name, 'quantity']} initialValue={1} rules={[{ required: true, message: 'Nhập số lượng' }, { validator: (_, value) => !itemType || (value >= 1 && value <= available) ? Promise.resolve() : Promise.reject(new Error(`Tối đa ${available} thiết bị`)) }]}>
-                        <InputNumber min={1} max={available || 1} disabled={!itemType} size="large" style={{ width: 100 }} aria-label="Số lượng" />
+                      <Form.Item name={[name, 'quantity']} initialValue={1} rules={[{ required: true, message: 'Nhập số lượng' }, { validator: (_, value) => !itemType || itemType === 'OTHER' || (value >= 1 && value <= available) ? Promise.resolve() : Promise.reject(new Error(`Tối đa ${available} thiết bị`)) }]}>
+                        <InputNumber min={1} max={maxQuantity} disabled={!itemType} size="large" style={{ width: 100 }} aria-label="Số lượng" />
                       </Form.Item>
+                      {itemType === 'OTHER' && <Form.Item name={[name, 'otherDescription']} rules={[{ required: true, message: 'Mô tả thiết bị' }]} className="grow2">
+                        <Input size="large" placeholder="Mô tả thiết bị khác" />
+                      </Form.Item>}
                       <Form.Item>
                         <Button size="large" onClick={() => remove(name)}>Xóa</Button>
                       </Form.Item>
                     </div>
                     );
                   })}
-                  <Button disabled={!room || fields.length >= Object.keys(roomEquipment).filter((type) => roomEquipment[type] > 0).length} onClick={() => {
+                  <Button disabled={!room || Object.keys(roomEquipment).filter((type) => roomEquipment[type] > 0).every((type) => (form.getFieldValue('equipment') || []).some((item) => item?.itemType === type)) && (form.getFieldValue('equipment') || []).some((item) => item?.itemType === 'OTHER')} onClick={() => {
                     const usedTypes = new Set((form.getFieldValue('equipment') || []).map((item) => item?.itemType));
-                    const itemType = Object.keys(roomEquipment).find((type) => roomEquipment[type] > 0 && !usedTypes.has(type));
+                    const itemType = Object.keys(roomEquipment).find((type) => roomEquipment[type] > 0 && !usedTypes.has(type)) || (!usedTypes.has('OTHER') ? 'OTHER' : null);
                     if (itemType) add({ itemType, quantity: 1 });
                   }}>Thêm thiết bị</Button>
                 </>
