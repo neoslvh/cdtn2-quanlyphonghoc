@@ -36,9 +36,13 @@ Sau khi các container khởi động xong, mở http://localhost:8080. Lần ch
 
 ### 2.1. Triển khai trên Render
 
-Project có `Dockerfile.render` để chạy frontend React và API chung một Web Service. Khi tạo service, chọn Docker, đặt Dockerfile Path là `Dockerfile.render`, thêm `DATABASE_URL` lấy từ Render Postgres, cùng `JWT_SECRET` và `SEED_PASSWORD` riêng. Container chạy `prisma migrate deploy`, nạp dữ liệu nền idempotent rồi phục vụ API và frontend; `CLIENT_DIST_DIR=/app/public` bật fallback React cho các đường dẫn không phải `/api`.
+Project có `Dockerfile.render` để chạy frontend React và API chung một Web Service. Khi tạo service, chọn Docker, đặt Dockerfile Path là `Dockerfile.render`, thêm `DATABASE_URL` lấy từ Render Postgres và `JWT_SECRET` riêng. Container chạy `prisma migrate deploy` rồi phục vụ API và frontend; `CLIENT_DIST_DIR=/app/public` bật fallback React cho các đường dẫn không phải `/api`.
 
-Render Postgres là database độc lập với PostgreSQL local. Seed chỉ tạo dữ liệu nền như phòng, thiết bị, đơn vị và tài khoản; muốn chuyển yêu cầu/lịch học local cần export/import database riêng.
+Render Postgres là database độc lập với PostgreSQL local. Muốn nạp dữ liệu mẫu cho một database mới, đặt tạm `RUN_SEED=true` và `SEED_PASSWORD` trong Environment, deploy một lần rồi xóa hoặc chuyển `RUN_SEED=false`. Seed không chạy lại ở các lần khởi động sau. Muốn chuyển yêu cầu/lịch học local cần export/import database riêng.
+
+Gói Render Free không có ổ đĩa bền vững: tệp trong `/app/uploads` sẽ mất khi service khởi động lại. Khi chạy thật, dùng Persistent Disk hoặc dịch vụ lưu trữ đối tượng cho tệp đính kèm.
+
+Số lượng thiết bị hiện được kiểm tra theo tồn kho của từng phòng tại thời điểm tạo hoặc sửa phiếu. Hệ thống chưa giữ riêng thiết bị giữa các yêu cầu trùng khung giờ; đây là quy tắc cần bổ sung khi thiết bị có thể luân chuyển giữa phòng.
 
 ### 2.2. Tài khoản mẫu
 
