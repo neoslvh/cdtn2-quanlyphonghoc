@@ -10,7 +10,7 @@ function setup() {
   const db = fakeDb();
   const storage = fakeStorage();
   const app = createApp({ db, storage, clock: () => NOW });
-  const room = addRoom(db, { capacity: 80 });
+  const room = addRoom(db, { capacity: 80, equipment: { MICROPHONE: 2, PROJECTOR: 1 } });
   const body = (over = {}) => ({ organizationId: '00000000-0000-4000-9000-0000000000a1', roomId: room.id, purpose: 'Sinh hoạt chuyên đề', startAt: day(12, 8), endAt: day(12, 10), participantCount: 40, equipment: [{ itemType: 'MICROPHONE', quantity: 2 }], ...over });
   return { db, app, storage, room, body, who: login(db, 'REQUESTER').auth };
 }
@@ -77,6 +77,25 @@ describe('luồng tạo, đính kèm, gửi', () => {
     const res = await request(app).post('/api/requests').set(who).send({ purpose: ' ', equipment: [{ itemType: 'OTHER' }] });
     expect(res.status).toBe(400);
     expect(res.body.error.details.map((d) => d.field)).toEqual(expect.arrayContaining(['organizationId', 'roomId', 'purpose', 'startAt', 'participantCount', 'equipment.0.otherDescription']));
+  });
+
+  test('không tạo hoặc sửa được yêu cầu vượt quá thiết bị sẵn có trong phòng', async () => {
+    const { app, body, who } = setup();
+    const over = await request(app).post('/api/requests').set(who).send(body({ equipment: [{ itemType: 'MICROPHONE', quantity: 3 }] }));
+    expect(over.status).toBe(400);
+    expect(over.body.error.details).toEqual(expect.arrayContaining([expect.objectContaining({ field: 'equipment.0.quantity' })]));
+
+    const id = (await request(app).post('/api/requests').set(who).send(body())).body.request.id;
+    const missing = await request(app).patch(`/api/requests/${id}`).set(who).send(body({ equipment: [{ itemType: 'SPEAKER', quantity: 1 }] }));
+    expect(missing.status).toBe(400);
+    expect(missing.body.error.details).toEqual(expect.arrayContaining([expect.objectContaining({ field: 'equipment.0.itemType' })]));
+  });
+
+  test('thiết bị OTHER có mô tả vẫn tạo được vì không phải thiết bị gắn sẵn với phòng', async () => {
+    const { app, body, who } = setup();
+    const res = await request(app).post('/api/requests').set(who).send(body({ equipment: [{ itemType: 'OTHER', quantity: 1, otherDescription: 'Máy quay phục vụ ghi hình' }] }));
+    expect(res.status).toBe(201);
+    expect(res.body.request.equipment).toEqual([{ itemType: 'OTHER', quantity: 1, otherDescription: 'Máy quay phục vụ ghi hình' }]);
   });
 
   test('đính kèm tệp bằng multipart: nhận PDF, từ chối .exe 415, tệp quá 5 MB 413, thiếu trường file 400', async () => {
