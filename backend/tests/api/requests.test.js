@@ -91,6 +91,16 @@ describe('luồng tạo, đính kèm, gửi', () => {
     expect(missing.body.error.details).toEqual(expect.arrayContaining([expect.objectContaining({ field: 'equipment.0.itemType' })]));
   });
 
+  test('báo đúng tên thiết bị AUDIO và AIR_CONDITIONER khi phòng không có', async () => {
+    const { app, body, who } = setup();
+    const res = await request(app).post('/api/requests').set(who).send(body({ equipment: [{ itemType: 'AUDIO', quantity: 1 }, { itemType: 'AIR_CONDITIONER', quantity: 1 }] }));
+    expect(res.status).toBe(400);
+    expect(res.body.error.details.map((detail) => detail.message)).toEqual(expect.arrayContaining([
+      expect.stringContaining('Âm thanh'),
+      expect.stringContaining('Máy lạnh'),
+    ]));
+  });
+
   test('thiết bị OTHER có mô tả vẫn tạo được vì không phải thiết bị gắn sẵn với phòng', async () => {
     const { app, body, who } = setup();
     const res = await request(app).post('/api/requests').set(who).send(body({ equipment: [{ itemType: 'OTHER', quantity: 1, otherDescription: 'Máy quay phục vụ ghi hình' }] }));
