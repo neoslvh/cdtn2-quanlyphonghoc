@@ -31,6 +31,8 @@ test('khi có CLIENT_DIST_DIR, web trả HTML còn API không tồn tại trả 
     const api = await request(app).get('/api/khong-co');
     expect(api.status).toBe(404);
     expect(api.body.error.code).toBe('NOT_FOUND');
+    const missingAsset = await request(app).get('/assets/khong-co.js');
+    expect(missingAsset.status).toBe(404);
   } finally {
     if (previous === undefined) delete process.env.CLIENT_DIST_DIR;
     else process.env.CLIENT_DIST_DIR = previous;
