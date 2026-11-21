@@ -63,6 +63,12 @@ export default function RequestForm() {
   };
   const room = rooms.find((r) => r.id === roomId);
   const roomEquipment = room?.equipment || {};
+  const availableEquipmentTypes = Object.keys(roomEquipment).filter((type) => roomEquipment[type] > 0);
+  const usedEquipmentTypes = new Set(equipmentValues.map((item) => item?.itemType));
+  const remainingEquipmentTypes = [
+    ...availableEquipmentTypes.filter((type) => !usedEquipmentTypes.has(type)),
+    ...(!usedEquipmentTypes.has('OTHER') ? ['OTHER'] : []),
+  ];
 
   // Khi đổi sang một phòng khác, thêm sẵn từng loại thiết bị hiện có để người dùng chỉ cần điều chỉnh số lượng cần dùng.
   useEffect(() => {
@@ -231,11 +237,7 @@ export default function RequestForm() {
                     </div>
                     );
                   })}
-                  <Button disabled={!room || Object.keys(roomEquipment).filter((type) => roomEquipment[type] > 0).every((type) => (form.getFieldValue('equipment') || []).some((item) => item?.itemType === type)) && (form.getFieldValue('equipment') || []).some((item) => item?.itemType === 'OTHER')} onClick={() => {
-                    const usedTypes = new Set((form.getFieldValue('equipment') || []).map((item) => item?.itemType));
-                    const itemType = Object.keys(roomEquipment).find((type) => roomEquipment[type] > 0 && !usedTypes.has(type)) || (!usedTypes.has('OTHER') ? 'OTHER' : null);
-                    if (itemType) add({ itemType, quantity: 1 });
-                  }}>Thêm thiết bị</Button>
+                  <Button disabled={!room || !remainingEquipmentTypes.length} onClick={() => add({ itemType: remainingEquipmentTypes[0], quantity: 1 })}>Thêm thiết bị</Button>
                 </>
               )}
             </Form.List>
