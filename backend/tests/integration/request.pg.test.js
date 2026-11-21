@@ -23,7 +23,8 @@ maybe('phiếu đề xuất trên PostgreSQL thật', () => {
     const p = parts(addWorkdays(new Date(), 10));
     return { startAt: fromVN(p.y, p.m, p.d, h).toISOString(), endAt: fromVN(p.y, p.m, p.d, h + 1).toISOString() };
   };
-  const body = (h, over = {}) => ({ organizationId: org.id, roomId: room.id, purpose: tag, ...slot(h), participantCount: 30, equipment: [{ itemType: 'MICROPHONE', quantity: 2 }], ...over });
+  // C.03.02 trong seed có đúng một Micro, nên fixture phải tuân thủ giới hạn tồn kho của phòng.
+  const body = (h, over = {}) => ({ organizationId: org.id, roomId: room.id, purpose: tag, ...slot(h), participantCount: 30, equipment: [{ itemType: 'MICROPHONE', quantity: 1 }], ...over });
 
   beforeAll(async () => {
     user = await prisma.user.findUnique({ where: { email: 'sv01@qlphong.local' }, include: { organization: true } });
@@ -37,7 +38,7 @@ maybe('phiếu đề xuất trên PostgreSQL thật', () => {
 
   test('tạo nháp, đọc lại đủ thông tin, sửa thay toàn bộ thiết bị', async () => {
     const r = await service.create(user, body(7));
-    expect(r).toMatchObject({ status: 'DRAFT', organizationName: org.name, room: { code: 'C.03.02' }, equipment: [{ itemType: 'MICROPHONE', quantity: 2, otherDescription: null }] });
+    expect(r).toMatchObject({ status: 'DRAFT', organizationName: org.name, room: { code: 'C.03.02' }, equipment: [{ itemType: 'MICROPHONE', quantity: 1, otherDescription: null }] });
     expect(r.code).toMatch(/^REQ-\d{3,}$/);
     const edited = await service.update(user, r.id, body(7, { equipment: [{ itemType: 'PROJECTOR' }, { itemType: 'OTHER', otherDescription: 'Bảng di động' }] }));
     expect(edited.equipment.map((e) => e.itemType).sort()).toEqual(['OTHER', 'PROJECTOR']);

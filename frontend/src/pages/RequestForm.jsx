@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Alert, Button, DatePicker, Form, Input, InputNumber, Result, Select, Tag, Upload, message } from 'antd';
 import dayjs from 'dayjs';
@@ -22,8 +22,10 @@ export default function RequestForm() {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(null);
+  const autoFilledRoomId = useRef(null);
   const watchedCount = Form.useWatch('participantCount', form);
   const roomId = Form.useWatch('roomId', form);
+  const equipmentValues = Form.useWatch('equipment', form) || [];
 
   useEffect(() => {
     api('/organizations').then((d) => setOrgs(d.items)).catch((e) => setError(e));
@@ -34,6 +36,7 @@ export default function RequestForm() {
     api(`/requests/${id}`)
       .then(({ request: r }) => {
         if (r.status !== 'DRAFT') return navigate(`/requests/${id}`, { replace: true });
+        autoFilledRoomId.current = r.room.id;
         setDraft(r);
         setFiles(r.attachments.map((a) => ({ uid: a.id, name: a.fileName, status: 'done', uploaded: true })));
         form.setFieldsValue({
@@ -59,6 +62,28 @@ export default function RequestForm() {
     equipment: [],
   };
   const room = rooms.find((r) => r.id === roomId);
+  const roomEquipment = room?.equipment || {};
+  const availableEquipmentTypes = Object.keys(roomEquipment).filter((type) => roomEquipment[type] > 0);
+  const usedEquipmentTypes = new Set(equipmentValues.map((item) => item?.itemType));
+  const remainingEquipmentTypes = [
+    ...availableEquipmentTypes.filter((type) => !usedEquipmentTypes.has(type)),
+    ...(!usedEquipmentTypes.has('OTHER') ? ['OTHER'] : []),
+  ];
+
+  // Khi đổi sang một phòng khác, thêm sẵn từng loại thiết bị hiện có để người dùng chỉ cần điều chỉnh số lượng cần dùng.
+  useEffect(() => {
+    if (!room || autoFilledRoomId.current === room.id || (id && !draft)) return;
+    const currentEquipment = form.getFieldValue('equipment') || [];
+    const equipment = currentEquipment.length
+      ? currentEquipment
+        .filter((item) => item?.itemType === 'OTHER' || roomEquipment[item?.itemType] > 0)
+        .map((item) => item.itemType === 'OTHER' ? item : { ...item, quantity: Math.min(item.quantity || 1, roomEquipment[item.itemType]) })
+      : Object.entries(roomEquipment)
+        .filter(([, quantity]) => quantity > 0)
+        .map(([itemType]) => ({ itemType, quantity: 1 }));
+    form.setFieldValue('equipment', equipment);
+    autoFilledRoomId.current = room.id;
+  }, [room, roomEquipment, id, draft, form]);
 
   const payload = (v) => ({
     organizationId: v.organizationId,
@@ -192,29 +217,33 @@ export default function RequestForm() {
             <Form.List name="equipment">
               {(fields, { add, remove }) => (
                 <>
-                  {fields.map(({ key, name }) => (
+                  {fields.map(({ key, name }) => {
+                    const itemType = equipmentValues[name]?.itemType;
+                    const available = roomEquipment[itemType] || 0;
+                    const usedTypes = new Set(equipmentValues.filter((_, index) => index !== name).map((item) => item?.itemType));
+                    const equipmentOptions = [
+                      ...Object.entries(roomEquipment).filter(([, quantity]) => quantity > 0).map(([value, quantity]) => ({ value, label: `${EQUIPMENT[value] || value} (có ${quantity})`, disabled: usedTypes.has(value) })),
+                      { value: 'OTHER', label: EQUIPMENT.OTHER, disabled: usedTypes.has('OTHER') },
+                    ];
+                    const maxQuantity = itemType === 'OTHER' ? 50 : available || 1;
+                    return (
                     <div className="form-row" key={key}>
                       <Form.Item name={[name, 'itemType']} rules={[{ required: true, message: 'Chọn thiết bị' }]} className="grow2">
-                        <Select size="large" placeholder="Loại thiết bị" options={Object.entries(EQUIPMENT).map(([value, label]) => ({ value, label }))} />
+                        <Select size="large" disabled={!room} placeholder="Loại thiết bị" options={equipmentOptions} />
                       </Form.Item>
-                      <Form.Item name={[name, 'quantity']} initialValue={1}>
-                        <InputNumber min={1} max={50} size="large" style={{ width: 100 }} aria-label="Số lượng" />
+                      <Form.Item name={[name, 'quantity']} initialValue={1} rules={[{ required: true, message: 'Nhập số lượng' }, { validator: (_, value) => !itemType || itemType === 'OTHER' || (value >= 1 && value <= available) ? Promise.resolve() : Promise.reject(new Error(`Tối đa ${available} thiết bị`)) }]}>
+                        <InputNumber min={1} max={maxQuantity} disabled={!itemType} size="large" style={{ width: 100 }} aria-label="Số lượng" />
                       </Form.Item>
-                      <Form.Item noStyle shouldUpdate={(a, b) => a.equipment?.[name]?.itemType !== b.equipment?.[name]?.itemType}>
-                        {({ getFieldValue }) =>
-                          getFieldValue(['equipment', name, 'itemType']) === 'OTHER' ? (
-                            <Form.Item name={[name, 'otherDescription']} rules={[{ required: true, message: 'Mô tả thiết bị' }]} className="grow2">
-                              <Input size="large" placeholder="Mô tả thiết bị khác" />
-                            </Form.Item>
-                          ) : null
-                        }
-                      </Form.Item>
+                      {itemType === 'OTHER' && <Form.Item name={[name, 'otherDescription']} rules={[{ required: true, message: 'Mô tả thiết bị' }]} className="grow2">
+                        <Input size="large" placeholder="Mô tả thiết bị khác" />
+                      </Form.Item>}
                       <Form.Item>
                         <Button size="large" onClick={() => remove(name)}>Xóa</Button>
                       </Form.Item>
                     </div>
-                  ))}
-                  <Button onClick={() => add({ quantity: 1 })}>Thêm thiết bị</Button>
+                    );
+                  })}
+                  <Button disabled={!room || !remainingEquipmentTypes.length} onClick={() => add({ itemType: remainingEquipmentTypes[0], quantity: 1 })}>Thêm thiết bị</Button>
                 </>
               )}
             </Form.List>

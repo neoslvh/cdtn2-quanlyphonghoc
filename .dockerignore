@@ -1,0 +1,9 @@
+.git
+.github
+**/node_modules
+**/.env
+**/.env.*
+**/uploads
+frontend/dist
+e2e
+docs

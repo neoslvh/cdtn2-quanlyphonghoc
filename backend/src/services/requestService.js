@@ -13,6 +13,13 @@ const MAX_ATTACHMENTS = 5;
 const LEAD_WORKDAYS = 3;
 const BGH_THRESHOLD = 200;
 
+const EQUIPMENT_LABELS = {
+  PROJECTOR: 'Máy chiếu',
+  MICROPHONE: 'Micro',
+  AUDIO: 'Âm thanh',
+  AIR_CONDITIONER: 'Máy lạnh',
+};
+
 // Chữ ký đầu tệp theo từng định dạng, để tệp đổi đuôi (ví dụ .exe đổi thành .pdf) bị từ chối.
 const SIGNATURES = {
   '.pdf': [[0x25, 0x50, 0x44, 0x46]],
@@ -67,6 +74,20 @@ function createRequestService({ repo, availability, storage, clock = () => new D
     if (!room) throw validation([{ field: 'roomId', message: 'Phòng không tồn tại.' }]);
     const org = await repo.findOrganization(data.organizationId);
     if (!org || !org.active || org.type !== 'REQUESTER_UNIT') throw validation([{ field: 'organizationId', message: 'Đơn vị đăng ký không hợp lệ.' }]);
+
+    const details = [];
+    for (const [index, item] of data.equipment.entries()) {
+      // Thiết bị "Khác" không phải tài sản đã gắn với phòng nên chỉ cần validator kiểm tra mô tả.
+      if (item.itemType === 'OTHER') continue;
+      const available = room.equipment?.[item.itemType] || 0;
+      const label = EQUIPMENT_LABELS[item.itemType] || 'loại thiết bị này';
+      if (!available) {
+        details.push({ field: `equipment.${index}.itemType`, message: `Phòng ${room.code} không có ${label} khả dụng.` });
+      } else if (item.quantity > available) {
+        details.push({ field: `equipment.${index}.quantity`, message: `${label} tại phòng ${room.code} chỉ có ${available} thiết bị.` });
+      }
+    }
+    if (details.length) throw validation(details);
   }
 
   return {

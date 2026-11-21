@@ -46,6 +46,20 @@ function createApp({ db, jwtSecret = 'khoa-bi-mat-chi-dung-khi-kiem-thu', bcrypt
   app.use('/api', auditRoutes({ service: createAuditService(db), guards }));
   app.use('/api', roomRoutes({ service: createRoomService(db), guards }));
 
+  // API không tồn tại luôn trả JSON, không được rơi vào fallback React khi deploy chung một service.
+  app.use('/api', (req, res) => res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Không tìm thấy API.' } }));
+
+  // Khi triển khai một dịch vụ duy nhất, server cũng phục vụ bản React đã build.
+  // Chỉ bật khi CLIENT_DIST_DIR được thiết lập để môi trường API cục bộ và test HTTP giữ nguyên hành vi.
+  const clientDistDir = process.env.CLIENT_DIST_DIR;
+  if (clientDistDir) {
+    app.use(express.static(clientDistDir, { index: false }));
+    app.get(/^(?!\/api(?:\/|$)).*/, (req, res, next) => {
+      if (path.extname(req.path)) return next();
+      res.sendFile('index.html', { root: clientDistDir });
+    });
+  }
+
   app.use((err, req, res, next) => {
     if (err instanceof ApiError) {
       return res.status(err.status).json({ error: { code: err.code, message: err.message, details: err.details } });
