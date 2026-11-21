@@ -34,13 +34,7 @@ docker compose up --build
 
 Sau khi các container khởi động xong, mở http://localhost:8080. Lần chạy đầu, container API tự tạo bảng và nạp dữ liệu mẫu.
 
-### 2.1. Triển khai trên Render
-
-Project có `Dockerfile.render` để chạy frontend React và API chung một Web Service. Khi tạo service, chọn Docker, đặt Dockerfile Path là `Dockerfile.render`, thêm `DATABASE_URL` lấy từ Render Postgres, cùng `JWT_SECRET` và `SEED_PASSWORD` riêng. Container chạy `prisma migrate deploy`, nạp dữ liệu nền idempotent rồi phục vụ API và frontend; `CLIENT_DIST_DIR=/app/public` bật fallback React cho các đường dẫn không phải `/api`.
-
-Render Postgres là database độc lập với PostgreSQL local. Seed chỉ tạo dữ liệu nền như phòng, thiết bị, đơn vị và tài khoản; muốn chuyển yêu cầu/lịch học local cần export/import database riêng.
-
-### 2.2. Tài khoản mẫu
+### 2.1. Tài khoản mẫu
 
 Mật khẩu mặc định của ba tài khoản dưới đây là `Demo@12345` (đổi bằng biến `SEED_PASSWORD`). Chỉ dùng cho phát triển và demo.
 
