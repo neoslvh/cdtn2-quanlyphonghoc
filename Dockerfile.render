@@ -14,7 +14,9 @@ RUN npm ci
 COPY backend ./
 RUN npx prisma generate && mkdir -p /app/uploads
 COPY --from=frontend-build /frontend/dist /app/public
+RUN chown -R node:node /app
 ENV NODE_ENV=production
 ENV CLIENT_DIST_DIR=/app/public
 EXPOSE 10000
+USER node
 CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && node src/server.js"]
