@@ -91,6 +91,13 @@ describe('luồng tạo, đính kèm, gửi', () => {
     expect(missing.body.error.details).toEqual(expect.arrayContaining([expect.objectContaining({ field: 'equipment.0.itemType' })]));
   });
 
+  test('thiết bị OTHER có mô tả vẫn tạo được vì không phải thiết bị gắn sẵn với phòng', async () => {
+    const { app, body, who } = setup();
+    const res = await request(app).post('/api/requests').set(who).send(body({ equipment: [{ itemType: 'OTHER', quantity: 1, otherDescription: 'Máy quay phục vụ ghi hình' }] }));
+    expect(res.status).toBe(201);
+    expect(res.body.request.equipment).toEqual([{ itemType: 'OTHER', quantity: 1, otherDescription: 'Máy quay phục vụ ghi hình' }]);
+  });
+
   test('đính kèm tệp bằng multipart: nhận PDF, từ chối .exe 415, tệp quá 5 MB 413, thiếu trường file 400', async () => {
     const { app, body, who, storage } = setup();
     const id = (await request(app).post('/api/requests').set(who).send(body())).body.request.id;

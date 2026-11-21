@@ -16,10 +16,8 @@ const BGH_THRESHOLD = 200;
 const EQUIPMENT_LABELS = {
   PROJECTOR: 'Máy chiếu',
   MICROPHONE: 'Micro',
-  SPEAKER: 'Loa',
-  WHITEBOARD: 'Bảng trắng',
-  COMPUTER: 'Máy tính',
-  TV: 'TV',
+  AUDIO: 'Âm thanh',
+  AIR_CONDITIONER: 'Máy lạnh',
 };
 
 // Chữ ký đầu tệp theo từng định dạng, để tệp đổi đuôi (ví dụ .exe đổi thành .pdf) bị từ chối.
@@ -79,6 +77,8 @@ function createRequestService({ repo, availability, storage, clock = () => new D
 
     const details = [];
     for (const [index, item] of data.equipment.entries()) {
+      // Thiết bị "Khác" không phải tài sản đã gắn với phòng nên chỉ cần validator kiểm tra mô tả.
+      if (item.itemType === 'OTHER') continue;
       const available = room.equipment?.[item.itemType] || 0;
       const label = EQUIPMENT_LABELS[item.itemType] || 'loại thiết bị này';
       if (!available) {
