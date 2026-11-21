@@ -13,7 +13,7 @@ function setup() {
   const repo = fakeDb();
   const storage = fakeStorage();
   const service = createRequestService({ repo, availability: createAvailabilityService(repo), storage, clock: () => NOW });
-  const room = addRoom(repo, { capacity: 80, equipment: { MICROPHONE: 2, PROJECTOR: 1 } });
+  const room = addRoom(repo, { capacity: 80 });
   const { user } = login(repo, 'REQUESTER');
   const body = (over = {}) => ({ organizationId: '00000000-0000-4000-9000-0000000000a1', roomId: room.id, purpose: 'Sinh hoạt chuyên đề', startAt: day(12, 8), endAt: day(12, 10), participantCount: 40, equipment: [], ...over });
   return { repo, service, storage, room, user, body };
