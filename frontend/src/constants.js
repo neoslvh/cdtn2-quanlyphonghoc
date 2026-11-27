@@ -27,6 +27,8 @@ export const AUDIT_ACTION = {
   REQUEST_REJECTED: 'Từ chối yêu cầu',
   REQUEST_CANCELLED_BY_SCHEDULE: 'Hủy yêu cầu do trùng lịch học chính khóa',
   REQUEST_EXPIRED: 'Yêu cầu hết hạn do chưa duyệt kịp',
+  REQUEST_CHECKED_IN: 'Check-in tại phòng',
+  INCIDENT_REPORTED: 'Báo hỏng thiết bị',
   ROOM_CREATED: 'Thêm phòng',
   ROOM_UPDATED: 'Sửa phòng',
   SCHEDULE_IMPORT_PREVIEWED: 'Xem trước thời khóa biểu nhập',
@@ -35,7 +37,7 @@ export const AUDIT_ACTION = {
   CLASS_SESSION_UPDATED: 'Sửa buổi học',
   CLASS_SESSION_CANCELLED: 'Hủy buổi học',
 };
-export const AUDIT_ENTITY = { usage_request: 'Yêu cầu', room: 'Phòng', import_batch: 'Lần nhập thời khóa biểu', class_schedule: 'Buổi học' };
+export const AUDIT_ENTITY = { usage_request: 'Yêu cầu', room: 'Phòng', import_batch: 'Lần nhập thời khóa biểu', class_schedule: 'Buổi học', incident_report: 'Báo hỏng' };
 // Cột của tệp thời khóa biểu mẫu, đúng thứ tự trong API Contract mục 1.5.5.
 export const SCHEDULE_COLUMNS = ['Học kỳ', 'Mã môn', 'Tên môn', 'Lớp', 'Thứ', 'Tiết bắt đầu', 'Số tiết', 'Mã phòng', 'Từ ngày', 'Đến ngày'];
 // Nhân viên cơ sở vật chất và quản trị viên quản lý phòng, thiết bị (API Contract mục 1.3).
