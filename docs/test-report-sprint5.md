@@ -6,7 +6,7 @@ Kết quả chạy ngày 27/11/2026 trên nhánh `Khoa` sau khi gộp `staging` 
 
 | Tầng | Số ca | Đạt | Không đạt | Bỏ qua |
 |---|---|---|---|---|
-| Backend: unit, API, tích hợp PostgreSQL thật | 204 | 204 | 0 | 0 |
+| Backend: unit, API, tích hợp PostgreSQL thật | 205 | 205 | 0 | 0 |
 | Giao diện, dữ liệu giả (Vitest) | 53 | 53 | 0 | 0 |
 | Toàn hệ thống trên Chrome (Playwright) | 73 | 68 | 0 | 5 |
 | Toàn hệ thống trên dữ liệu giả (Playwright, `E2E_MOCK=1`) | 4 | 4 | 0 | 0 |

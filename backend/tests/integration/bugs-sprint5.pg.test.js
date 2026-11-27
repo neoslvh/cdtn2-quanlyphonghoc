@@ -82,4 +82,14 @@ maybe('ba lỗi Sprint 5 trên PostgreSQL thật', () => {
     expect((await prisma.importBatch.findUnique({ where: { id: b.batchId } })).status).toBe('PREVIEW');
     expect(await prisma.classSchedule.count({ where: { batchId: b.batchId, status: 'PENDING' } })).toBe(1);
   });
+
+  test('SCRUM-33 hai lần xác nhận trùng nhau chạy song song: đúng một lần thành công, lần kia ROOM_CONFLICT', async () => {
+    const csv = (sem, code, start) => ({ originalname: 't.csv', size: 300, buffer: Buffer.from([COLUMNS.join(','), [sem, code, 'Môn thử', `K-${code}`, '3', start, '2', 'B.06.02', '09/03/2032', '09/03/2032'].join(',')].join('\n')) });
+    const a = await schedule.createImport(pdt, csv(`${tag}-P1`, 'S5P', '1'), { semester: `${tag}-P1`, mode: 'APPEND' });
+    const b = await schedule.createImport(pdt, csv(`${tag}-P2`, 'S5Q', '2'), { semester: `${tag}-P2`, mode: 'APPEND' });
+    const res = await Promise.allSettled([schedule.commit(pdt, a.batchId), schedule.commit(pdt, b.batchId)]);
+    expect(res.map((x) => x.status).sort()).toEqual(['fulfilled', 'rejected']);
+    expect(res.find((x) => x.status === 'rejected').reason.code).toBe('ROOM_CONFLICT');
+    expect(await prisma.classSchedule.count({ where: { batch: { semester: { in: [`${tag}-P1`, `${tag}-P2`] } }, status: 'ACTIVE' } })).toBe(1);
+  });
 });
