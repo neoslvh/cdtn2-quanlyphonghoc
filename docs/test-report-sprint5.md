@@ -6,7 +6,7 @@ Kết quả chạy ngày 27/11/2026 trên nhánh `Khoa` sau khi gộp `staging` 
 
 | Tầng | Số ca | Đạt | Không đạt | Bỏ qua |
 |---|---|---|---|---|
-| Backend: unit, API, tích hợp PostgreSQL thật | 221 | 221 | 0 | 0 |
+| Backend: unit, API, tích hợp PostgreSQL thật | 226 | 226 | 0 | 0 |
 | Giao diện, dữ liệu giả (Vitest) | 53 | 53 | 0 | 0 |
 | Toàn hệ thống trên Chrome (Playwright) | 76 | 71 | 0 | 5 |
 | Toàn hệ thống trên dữ liệu giả (Playwright, `E2E_MOCK=1`) | 4 | 4 | 0 | 0 |
@@ -48,7 +48,7 @@ Cách sửa ba lỗi backend. SCRUM-31: thêm trạng thái EXPIRED; máy chủ 
 
 ## 6. Mã QR, check-in và báo hỏng
 
-Ba thẻ SCRUM-10, SCRUM-23, SCRUM-24 có API theo `API_QR_CheckIn_BaoHong.md`. Ảnh QR sinh ra được giải mã thử bằng thư viện zbar, ra đúng đường dẫn `/qr/{token}` của giao diện. Ca check-in thành công (TC-FR18-01) chạy trên giao diện thật sau khi dời giờ của phiếu đã duyệt về hiện tại trong cơ sở dữ liệu kiểm thử, vì phiếu thật phải gửi trước ba ngày làm việc. Bộ E2E-15 kiểm mã QR phòng, trang mở từ mã QR, check-in sai phòng và sai giờ, báo hỏng kèm ảnh và danh sách báo hỏng của nhân viên cơ sở vật chất.
+Ba thẻ SCRUM-10, SCRUM-23, SCRUM-24 có API theo `API_QR_CheckIn_BaoHong.md`. Ảnh QR sinh ra được giải mã thử bằng thư viện zbar, ra đúng đường dẫn `/qr/{token}` của giao diện. Ca check-in thành công (TC-FR18-01) chạy trên giao diện thật sau khi dời giờ của phiếu đã duyệt về hiện tại trong cơ sở dữ liệu kiểm thử, vì phiếu thật phải gửi trước ba ngày làm việc. Bộ E2E-15 kiểm mã QR phòng, trang mở từ mã QR, check-in sai phòng và sai giờ, báo hỏng thiếu thông tin và báo hỏng ngoài giờ dùng phòng.
 
 Khi kiểm thử phát hiện thêm hai lỗi cấu hình triển khai bằng docker và đã sửa: nginx chuyển tiếp `Host` không kèm cổng nên mã QR trỏ sai địa chỉ khi chạy ở cổng 8080, và CSP không cho ảnh `blob:` nên hộp mã QR không hiện ảnh.
 

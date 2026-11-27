@@ -10,7 +10,7 @@ Tài liệu mô tả các API của FR-05 (SCRUM-10), FR-18 (SCRUM-23) và FR-19
 | GET | /equipment/{id}/qr | FACILITY_STAFF, ADMIN | Ảnh SVG mã QR của thiết bị |
 | GET | /qr/{token} | Đã đăng nhập | `{ type: 'ROOM', room }` hoặc `{ type: 'EQUIPMENT', equipment }` |
 
-Mỗi phòng và thiết bị có cột `qr_token` duy nhất. Mã QR chứa đường dẫn `{APP_URL}/qr/{token}`, nên quét bằng camera điện thoại là mở trang thông tin tài nguyên trên giao diện; chưa đăng nhập thì đăng nhập xong quay lại đúng trang đó. Dưới hình QR in mã phòng hoặc mã tài sản và token để nhập tay khi trình duyệt không quét được. `APP_URL` đặt trong biến môi trường; bỏ trống thì máy chủ lấy địa chỉ người dùng đang mở (có xét `X-Forwarded-Proto` khi chạy sau proxy HTTPS).
+Mỗi phòng và thiết bị có cột `qr_token` duy nhất. Mã QR chứa đường dẫn `{APP_URL}/qr/{token}`, nên quét bằng camera điện thoại là mở trang thông tin tài nguyên trên giao diện; chưa đăng nhập thì đăng nhập xong quay lại đúng trang đó. Dưới hình QR in mã phòng hoặc mã tài sản và token để nhập tay khi trình duyệt không quét được. Địa chỉ lấy từ biến môi trường `APP_URL`, không có thì dùng `RENDER_EXTERNAL_URL` do Render tự cấp. Mã QR được in và dán cố định nên khi `NODE_ENV=production` máy chủ không lấy địa chỉ từ header `Host` do client gửi (giả được để trỏ sang trang lạ); thiếu cả hai biến thì trả 500 `CONFIG_ERROR`. Chỉ khi chạy thử mới dùng địa chỉ người dùng đang mở (có xét `X-Forwarded-Proto`).
 
 GET /qr/{token} trả trạng thái hiện tại của tài nguyên, kể cả khi phòng ngừng sử dụng hay thiết bị hỏng. Phòng gồm `{ id, code, name, roomType, capacity, status }`; thiết bị gồm `{ id, assetCode, name, equipmentType, status, qrToken, room: { id, code } | null }`. Token không tồn tại trả 404 `NOT_FOUND`.
 
@@ -38,6 +38,8 @@ POST /incidents, quyền REQUESTER, nhận multipart gồm `requestId`, `equipme
 - Mô tả bắt buộc, tối đa 2.000 ký tự.
 - Ảnh chỉ nhận PNG hoặc JPG, kiểm cả đuôi tệp lẫn chữ ký đầu tệp (sai trả 415 `UNSUPPORTED_FILE_TYPE`), tối đa 5 MB (vượt trả 413 `FILE_TOO_LARGE`).
 - Phiếu phải là của người báo và đã duyệt (409 `INVALID_STATE` nếu chưa duyệt); thiết bị phải thuộc phòng của phiếu (400 `VALIDATION_ERROR` với `field = 'equipmentId'`).
-- Tạo báo hỏng ở trạng thái `OPEN`, chuyển thiết bị sang `BROKEN` và ghi nhật ký `INCIDENT_REPORTED` trong cùng một giao dịch. Lưu cơ sở dữ liệu thất bại thì xóa ảnh đã lưu.
+- Chỉ báo hỏng trong thời gian dùng phòng, cùng khung giờ với check-in (409 `INVALID_STATE` "Chỉ báo hỏng được trong thời gian sử dụng phòng, từ {giờ} đến {giờ}.").
+- Chỉ thiết bị đang `GOOD`: thiết bị đã báo hỏng hoặc đang bảo trì trả 409 `INVALID_STATE`, không tạo báo hỏng trùng và không đổi sai trạng thái bảo trì.
+- Tạo báo hỏng ở trạng thái `OPEN`, chuyển thiết bị sang `BROKEN` và ghi nhật ký `INCIDENT_REPORTED` trong cùng một giao dịch. Thiết bị chỉ được đổi khi còn `GOOD` (cập nhật có điều kiện), nên hai người báo cùng lúc thì một người nhận 409. Bị từ chối hoặc lưu cơ sở dữ liệu thất bại thì xóa ảnh đã lưu.
 
 GET /incidents, quyền FACILITY_STAFF và ADMIN, nhận `status` (`OPEN`, `IN_PROGRESS`, `RESOLVED`), `page`, `pageSize`, trả `{ items, page, pageSize, total }`, mới nhất trước. Mỗi phần tử gồm `{ id, createdAt, description, imageName, status, reporterName, request: { id, code }, room: { code }, equipment: { id, assetCode, name }, ticket }`. `ticket` là `null` cho đến khi có phiếu bảo trì (SCRUM-25).

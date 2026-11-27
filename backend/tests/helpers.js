@@ -321,9 +321,11 @@ function fakeDb() {
       return true;
     },
     createIncident: async ({ requestId, equipmentId, reportedBy, description, imagePath, imageName }) => {
+      const e = equipment.find((x) => x.id === equipmentId);
+      if (e.status !== 'GOOD') return null;
+      e.status = 'BROKEN';
       const i = { id: `50000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`, requestId, equipmentId, reportedBy, description, imagePath, imageName, status: 'OPEN', createdAt: new Date() };
       incidents.push(i);
-      equipment.find((e) => e.id === equipmentId).status = 'BROKEN';
       audit.push({ userId: reportedBy, action: 'INCIDENT_REPORTED', entityType: 'incident_report', entityId: i.id });
       return incidentView(i);
     },

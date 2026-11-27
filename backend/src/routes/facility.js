@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const multer = require('multer');
+const { ApiError } = require('../errors');
 const { pageParams } = require('../http');
 const { MAX_FILE_BYTES } = require('../services/requestService');
 
@@ -10,9 +11,15 @@ function facilityRoutes({ service, guards }) {
   const staff = requireRole('FACILITY_STAFF', 'ADMIN');
   const requester = requireRole('REQUESTER');
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_BYTES, files: 1 } });
-  // Địa chỉ trang giao diện để ghi vào mã QR, đặt bằng APP_URL. Không đặt thì lấy chính địa chỉ người dùng đang mở
-  // (giao diện và API chung một tên miền), có xét X-Forwarded-Proto khi chạy sau proxy HTTPS như Render.
-  const base = (req) => (process.env.APP_URL || `${(req.get('x-forwarded-proto') || req.protocol).split(',')[0].trim()}://${req.get('host')}`).replace(/\/+$/, '');
+  // Địa chỉ giao diện ghi vào mã QR: APP_URL, hoặc RENDER_EXTERNAL_URL do Render tự cấp. Mã QR được in và dán cố định
+  // nên trên môi trường thật không lấy từ header Host do client gửi (giả được để trỏ sang trang lạ); chỉ khi chạy thử
+  // (không phải production) mới dùng địa chỉ người dùng đang mở cho tiện.
+  const base = (req) => {
+    const configured = process.env.APP_URL || process.env.RENDER_EXTERNAL_URL;
+    if (configured) return configured.replace(/\/+$/, '');
+    if (process.env.NODE_ENV === 'production') throw new ApiError(500, 'CONFIG_ERROR', 'Máy chủ chưa cấu hình APP_URL nên chưa tạo được mã QR.');
+    return `${(req.get('x-forwarded-proto') || req.protocol).split(',')[0].trim()}://${req.get('host')}`;
+  };
   const svg = (res, body) => res.type('image/svg+xml').set('Cache-Control', 'no-store').send(body);
 
   router.get('/rooms/:id/qr', requireAuth, staff, async (req, res) => svg(res, await service.roomQr(req.params.id, base(req))));

@@ -63,11 +63,12 @@ test.describe('E2E-15 mã QR, check-in, báo hỏng', () => {
     await expect(page.getByText('Chưa check-in')).toBeVisible();
   });
 
-  test('TC-FR19 báo hỏng kèm ảnh: thiết bị chuyển Hỏng, nhân viên cơ sở vật chất thấy trong danh sách báo hỏng', async ({ page, request }) => {
+  // Báo hỏng chỉ trong thời gian dùng phòng; phiếu E2E ở xa trong tương lai nên kiểm trường hợp bị chặn và thiết bị giữ Tốt.
+  // Ca gửi thành công nằm ở test API và PostgreSQL, vì không dời được giờ phiếu qua API.
+  test('TC-FR19 báo hỏng: bắt buộc chọn thiết bị và mô tả; ngoài giờ dùng phòng bị chặn, thiết bị giữ nguyên', async ({ page, request }) => {
     const r = await approvedRequest(request);
     const room = await roomOf(request, ROOM);
-    const eq = room.equipmentItems.find((e: { equipmentType: string }) => e.equipmentType === 'MICROPHONE');
-    const desc = `Micro rè ${runTag()}`;
+    const eq = room.equipmentItems.find((e: { equipmentType: string; status: string }) => e.equipmentType === 'MICROPHONE');
     await loginAs(page, request, ACCOUNTS.requester.email, `/requests/${r.id}`);
     await page.getByRole('button', { name: 'Báo hỏng thiết bị' }).click();
     const modal = page.locator('.ant-modal');
@@ -76,18 +77,11 @@ test.describe('E2E-15 mã QR, check-in, báo hỏng', () => {
     await expect(modal.getByText('Mô tả tình trạng hỏng')).toBeVisible();
     await modal.locator('.ant-select').click();
     await page.locator('.ant-select-item-option').filter({ hasText: eq.assetCode }).click();
-    await modal.getByPlaceholder(/Máy chiếu không lên hình/).fill(desc);
+    await modal.getByPlaceholder(/Máy chiếu không lên hình/).fill(`Micro rè ${runTag()}`);
     await modal.locator('input[type=file]').setInputFiles({ name: 'micro.png', mimeType: 'image/png', buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]) });
     await modal.getByRole('button', { name: 'Gửi báo hỏng' }).click();
-    await expect(page.getByText('Đã gửi báo hỏng, nhân viên cơ sở vật chất sẽ xử lý')).toBeVisible();
-
+    await expect(modal.getByText(/^Chỉ báo hỏng được trong thời gian sử dụng phòng, từ /)).toBeVisible();
     const after = await roomOf(request, ROOM);
-    expect(after.equipmentItems.find((e: { id: string }) => e.id === eq.id).status).toBe('BROKEN');
-    await loginAs(page, request, ACCOUNTS.facility.email, '/facility');
-    await page.getByRole('tab', { name: 'Báo hỏng và bảo trì' }).click();
-    const row = page.locator('.ant-table-tbody tr.ant-table-row').filter({ hasText: desc });
-    await expect(row).toContainText(eq.assetCode);
-    await expect(row).toContainText(ROOM);
-    await expect(row).toContainText(r.code);
+    expect(after.equipmentItems.find((e: { id: string }) => e.id === eq.id).status).toBe(eq.status);
   });
 });
