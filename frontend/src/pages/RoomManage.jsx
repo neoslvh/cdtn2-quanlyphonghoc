@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Form, Input, InputNumber, Modal, Select, Table, Tag, message } from 'antd';
 import { api } from '../api';
+import { QrModal } from '../components';
 import { CAMPUSES, EQUIPMENT, ROOM_STATUS, ROOM_TYPE } from '../constants';
+import RoomBookings from './RoomBookings';
 
 const options = (map) => Object.entries(map).map(([value, label]) => ({ value, label: Array.isArray(label) ? label[1] : label }));
 
@@ -15,6 +17,8 @@ export default function RoomManage() {
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null); // null: đóng, {}: thêm mới, phòng: sửa
   const [saving, setSaving] = useState(false);
+  const [qr, setQr] = useState(null);
+  const [schedule, setSchedule] = useState(null);
   const [form] = Form.useForm();
 
   const load = useCallback(() => {
@@ -91,10 +95,20 @@ export default function RoomManage() {
               { title: 'Sức chứa', dataIndex: 'capacity', width: 90, align: 'right' },
               { title: 'Thiết bị', dataIndex: 'equipment', render: (eq) => Object.entries(eq).map(([t, n]) => <Tag key={t}>{EQUIPMENT[t] || t} x{n}</Tag>) },
               { title: 'Trạng thái', dataIndex: 'status', width: 130, render: (v) => <Tag color={ROOM_STATUS[v][0]}>{ROOM_STATUS[v][1]}</Tag> },
-              { title: '', width: 70, render: (_, room) => <Button type="link" size="small" onClick={() => open(room)}>Sửa</Button> },
+              {
+                title: '',
+                width: 170,
+                render: (_, room) => (
+                  <>
+                    <Button type="link" size="small" onClick={() => setSchedule(room)}>Lịch</Button>
+                    <Button type="link" size="small" onClick={() => setQr({ path: `/rooms/${room.id}/qr`, label: room.code })}>QR</Button>
+                    <Button type="link" size="small" onClick={() => open(room)}>Sửa</Button>
+                  </>
+                ),
+              },
             ]}
           />
-          <p className="note">Thiết bị trong phòng được quản lý ở mục Quản lý thiết bị (Sprint 3).</p>
+          <p className="note">Thiết bị trong phòng được quản lý ở mục Thiết bị. Mã QR của phòng in ra và dán tại cửa phòng để người sử dụng check-in.</p>
         </div>
       </div>
 
@@ -124,6 +138,8 @@ export default function RoomManage() {
           </Form.Item>
         </Form>
       </Modal>
+      <QrModal target={qr} onClose={() => setQr(null)} />
+      <RoomBookings room={schedule} onClose={() => setSchedule(null)} />
     </>
   );
 }

@@ -5,6 +5,7 @@ import dayjs from 'dayjs';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { CAMPUSES, EQUIPMENT, ROOM_TYPE } from '../constants';
+import RoomBookings from './RoomBookings';
 
 const PICKABLE = ['MICROPHONE', 'PROJECTOR', 'AUDIO', 'AIR_CONDITIONER'];
 
@@ -30,7 +31,7 @@ function EquipmentPicker({ value = {}, onChange }) {
   );
 }
 
-const columns = (onPick) => [
+const columns = (onPick, onSchedule) => [
 
   { title: 'Mã phòng', dataIndex: 'code', width: 110, render: (v) => <b>{v}</b> },
   { title: 'Cơ sở', dataIndex: 'campus', width: 100 },
@@ -42,6 +43,7 @@ const columns = (onPick) => [
     render: (eq) => Object.entries(eq).map(([t, n]) => <Tag key={t}>{EQUIPMENT[t] || t} x{n}</Tag>),
   },
   { title: 'Trạng thái', width: 110, render: () => <Tag color="green">Còn trống</Tag> },
+  { title: '', width: 70, render: (_, room) => <Button type="link" size="small" onClick={() => onSchedule(room)}>Lịch</Button> },
   ...(onPick ? [{ title: '', width: 90, render: (_, room) => <Button type="primary" size="small" onClick={() => onPick(room)}>Chọn</Button> }] : []),
 ];
 
@@ -51,6 +53,7 @@ export default function RoomSearch() {
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const [state, setState] = useState({ loading: false, error: null, data: null, query: null });
+  const [schedule, setSchedule] = useState(null);
 
   const search = async (values, page = 1) => {
     const [from, to] = values.range;
@@ -126,7 +129,7 @@ export default function RoomSearch() {
             <Table
               rowKey="id"
               size="middle"
-              columns={columns(user.role === 'REQUESTER' ? pick : null)}
+              columns={columns(user.role === 'REQUESTER' ? pick : null, setSchedule)}
               dataSource={state.data.items}
               scroll={{ x: 760 }}
               locale={{ emptyText: <Empty description="Không có phòng nào thỏa điều kiện. Thử đổi khung giờ hoặc giảm bớt thiết bị." /> }}
@@ -136,6 +139,7 @@ export default function RoomSearch() {
           </div>
         )}
       </div>
+      <RoomBookings room={schedule} onClose={() => setSchedule(null)} />
     </>
   );
 }
