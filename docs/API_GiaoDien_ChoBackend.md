@@ -48,8 +48,8 @@ GET /approval-rules trả `{ items }`, mỗi phần tử `{ id, code, name, prio
 
 ## 6. Báo cáo thống kê (SCRUM-27)
 
-GET /reports/summary nhận `from`, `to` và trả `{ requests: { total, byStatus }, brokenEquipment, openIncidents, roomUsage }`. Trong đó `byStatus` đếm theo `DRAFT`, `PENDING`, `APPROVED`, `REJECTED`, `CANCELLED`; `roomUsage` là danh sách `{ roomCode, roomName, bookings, hours }` của các lượt đã duyệt, xếp giảm dần theo số giờ.
+GET /reports/summary nhận `from`, `to` và trả `{ requests: { total, byStatus }, brokenEquipment, openIncidents, roomUsage }`. Trong đó `byStatus` đếm theo `DRAFT`, `PENDING`, `APPROVED`, `REJECTED`, `CANCELLED`, `EXPIRED`; `roomUsage` là danh sách `{ roomCode, roomName, bookings, hours }` của các lượt đã duyệt, xếp giảm dần theo số giờ.
 
 ## 7. Bổ sung cho các màn hình đã có API
 
-Một số bộ lọc trong wireframe cần thêm tham số ở API đã có nên giao diện chưa làm. GET /requests cần `from`, `to` và `q` (mã yêu cầu hoặc mã phòng) cho bộ lọc của WF-04. GET /approvals cần `organizationId`, `roomType`, `campus` và quy mô cho bộ lọc của WF-06. Các bước duyệt trong đối tượng `request` cần thêm `decidedAt` và `decisionReason` để WF-05 hiện thời điểm và ghi chú của từng cấp.
+Một số bộ lọc trong wireframe cần thêm tham số ở API đã có nên giao diện chưa làm. GET /requests cần `from`, `to` và `q` (mã yêu cầu hoặc mã phòng) cho bộ lọc của WF-04. GET /approvals cần `organizationId`, `roomType`, `campus` và quy mô cho bộ lọc của WF-06. Các bước duyệt trong đối tượng `request` đã có `decidedAt` và `decisionReason` (SCRUM-32) nên WF-05 hiện được thời điểm và ghi chú của từng cấp.
