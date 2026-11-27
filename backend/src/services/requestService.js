@@ -49,7 +49,8 @@ const toRequest = (r) => ({
   participantCount: r.participantCount,
   equipment: r.equipment,
   attachments: r.attachments.map((a) => ({ id: a.id, fileName: a.fileName })),
-  steps: r.steps.map((s) => ({ order: s.stepNo, organizationName: s.organizationName, status: s.status })),
+  // decisionReason và decidedAt để người đăng ký thấy lý do, thời điểm của từng cấp (WF-05, FR-15).
+  steps: r.steps.map((s) => ({ order: s.stepNo, organizationName: s.organizationName, status: s.status, decisionReason: s.decisionReason || null, decidedAt: s.decidedAt ? s.decidedAt.toISOString() : null })),
   createdAt: r.createdAt.toISOString(),
   submittedAt: r.submittedAt ? r.submittedAt.toISOString() : null,
   cancelReason: r.cancelReason || null,
@@ -184,6 +185,15 @@ function createRequestService({ repo, availability, storage, clock = () => new D
       // null nghĩa là có yêu cầu khác gửi hoặc hủy phiếu này trước.
       if (!submitted) throw new ApiError(409, 'INVALID_STATE', 'Yêu cầu đã được gửi hoặc hủy.');
       return toRequest(submitted);
+    },
+
+    /**
+     * BR-07: phiếu đang chờ duyệt đã đến giờ bắt đầu thì hết hạn. Gọi định kỳ từ server.js.
+     * Trả số phiếu vừa chuyển EXPIRED.
+     */
+    async expireOverdue() {
+      const done = await repo.expireOverdue(clock(), (r) => `Yêu cầu ${reqCode(r.requestNo)} dùng phòng ${r.room.code} đã đến giờ bắt đầu mà chưa được duyệt xong nên đã hết hạn.`);
+      return done.length;
     },
 
     /** Hủy phiếu nháp hoặc đang chờ duyệt (FR-09). Lỗi: NOT_FOUND, INVALID_STATE. */

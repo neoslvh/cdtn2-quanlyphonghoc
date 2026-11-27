@@ -1,6 +1,8 @@
 // Tầng repository: đọc ghi phiếu đề xuất, thiết bị, tệp đính kèm và các bước duyệt. Không chứa quy tắc nghiệp vụ.
 const { audit, missing } = require('./common');
 
+const TX = { maxWait: 10000, timeout: 30000 };
+
 const include = {
   room: { select: { id: true, code: true, name: true, capacity: true, status: true } },
   requester: { select: { fullName: true } },
@@ -20,7 +22,7 @@ function flatRequest(r) {
     organizationName: organization.name,
     equipment: equipment.map((e) => ({ itemType: e.itemType, quantity: e.quantity, otherDescription: e.otherDescription })),
     attachments: attachments.map((a) => ({ id: a.id, fileName: a.fileName, type: a.type })),
-    steps: steps.map((s) => ({ id: s.id, stepNo: s.stepNo, approverOrgId: s.approverOrgId, organizationName: s.approverOrg.name, status: s.status, decisionReason: s.decisionReason })),
+    steps: steps.map((s) => ({ id: s.id, stepNo: s.stepNo, approverOrgId: s.approverOrgId, organizationName: s.approverOrg.name, status: s.status, decisionReason: s.decisionReason, decidedAt: s.decidedAt })),
   };
 }
 
@@ -65,14 +67,35 @@ function createRequestRepo(prisma) {
     },
 
     /** Phiếu PENDING có bước đang chờ của đơn vị orgId (bỏ trống thì của mọi đơn vị), cũ nhất trước. Trả { items, total }. */
-    listPendingApprovals: async ({ orgId, page, pageSize }) => {
-      const where = { status: 'PENDING', steps: { some: { status: 'PENDING', ...(orgId ? { approverOrgId: orgId } : {}) } } };
+    listPendingApprovals: async ({ orgId, after, page, pageSize }) => {
+      const where = { status: 'PENDING', ...(after ? { startAt: { gt: after } } : {}), steps: { some: { status: 'PENDING', ...(orgId ? { approverOrgId: orgId } : {}) } } };
       const [rows, total] = await Promise.all([
         prisma.usageRequest.findMany({ where, include, orderBy: { submittedAt: 'asc' }, skip: (page - 1) * pageSize, take: pageSize }),
         prisma.usageRequest.count({ where }),
       ]);
       return { items: rows.map(flatRequest), total };
     },
+
+    /**
+     * BR-07: chuyển các yêu cầu PENDING đã đến giờ bắt đầu sang EXPIRED trong một giao dịch, hủy các bước còn chờ,
+     * gửi thông báo cho người đăng ký và ghi nhật ký (người thực hiện là hệ thống). Cập nhật có điều kiện status PENDING
+     * nên chạy song song hay chạy trùng với một lần duyệt cũng không xử lý một phiếu hai lần. Trả danh sách phiếu đã hết hạn.
+     */
+    expireOverdue: (now, message) =>
+      prisma.$transaction(async (tx) => {
+        const due = await tx.usageRequest.findMany({ where: { status: 'PENDING', startAt: { lte: now } }, select: { id: true, requestNo: true, requesterId: true, room: { select: { code: true } } } });
+        const done = [];
+        for (const r of due) {
+          const { count } = await tx.usageRequest.updateMany({ where: { id: r.id, status: 'PENDING' }, data: { status: 'EXPIRED' } });
+          if (count) done.push(r);
+        }
+        if (!done.length) return [];
+        const ids = done.map((r) => r.id);
+        await tx.approvalStep.updateMany({ where: { requestId: { in: ids }, status: { in: ['PENDING', 'WAITING'] } }, data: { status: 'CANCELLED' } });
+        await tx.notification.createMany({ data: done.map((r) => ({ userId: r.requesterId, requestId: r.id, title: 'Yêu cầu sử dụng phòng đã hết hạn', message: message(r) })) });
+        await tx.auditLog.createMany({ data: ids.map((id) => ({ userId: null, action: 'REQUEST_EXPIRED', entityType: 'usage_request', entityId: id, beforeData: { status: 'PENDING' }, afterData: { status: 'EXPIRED' } })) });
+        return done;
+      }, TX),
 
     addAttachment: (requestId, data) => prisma.requestAttachment.create({ data: { requestId, ...data } }),
 

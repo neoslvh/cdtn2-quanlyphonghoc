@@ -10,6 +10,8 @@ function createApprovalService({ repo, availability, clock = () => new Date() })
     if (!r) throw new ApiError(404, 'NOT_FOUND', 'Không tìm thấy yêu cầu.');
     const step = r.steps.find((s) => s.status === 'PENDING');
     if (r.status !== 'PENDING' || !step) throw new ApiError(409, 'INVALID_STATE', 'Yêu cầu không còn ở trạng thái chờ duyệt.');
+    // BR-07: đã đến giờ bắt đầu thì không duyệt hay từ chối nữa, kể cả khi tác vụ hết hạn chưa kịp chạy.
+    if (r.startAt <= clock()) throw new ApiError(409, 'INVALID_STATE', 'Yêu cầu đã đến giờ bắt đầu mà chưa duyệt xong nên đã hết hạn.');
     if (step.approverOrgId !== user.organizationId) throw new ApiError(403, 'FORBIDDEN', 'Bước duyệt hiện tại không thuộc đơn vị của bạn.');
     return { r, step };
   }
@@ -19,7 +21,7 @@ function createApprovalService({ repo, availability, clock = () => new Date() })
   return {
     /** Phiếu đang chờ đơn vị của người duyệt. Trả { items, total }. */
     async listPending(user, paging) {
-      const { items, total } = await repo.listPendingApprovals({ orgId: user.organizationId, ...paging });
+      const { items, total } = await repo.listPendingApprovals({ orgId: user.organizationId, after: clock(), ...paging });
       return { items: items.map(toRequest), total };
     },
 

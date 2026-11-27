@@ -42,6 +42,16 @@ function createScheduleRepo(prisma) {
     /** Map mã phòng -> id cho các mã có trong hệ thống. */
     findRoomsByCodes: async (codes) => new Map((await prisma.room.findMany({ where: { code: { in: codes } }, select: { id: true, code: true } })).map((r) => [r.code, r.id])),
 
+    /**
+     * Buổi học ACTIVE đang có trên các phòng trong khoảng thời gian của các buổi mới, trừ các buổi thuộc học kỳ
+     * replaceSemester (sẽ bị thay ở chế độ REPLACE). Dùng để báo lớp mới trùng phòng, trùng giờ với lớp đã có.
+     */
+    findActiveSessionsIn: async ({ roomIds, from, to, replaceSemester }) =>
+      (await prisma.classSchedule.findMany({
+        where: { status: 'ACTIVE', roomId: { in: roomIds }, startAt: { lt: to }, endAt: { gt: from }, ...(replaceSemester ? { batch: { semester: { not: replaceSemester } } } : {}) },
+        include: sessionInclude,
+      })).map(flatSession),
+
     /** Tạo lần nhập ở trạng thái PREVIEW cùng các buổi học PENDING trong một giao dịch. */
     createImportBatch: ({ importedBy, semester, mode, fileName, rowCount, sessions }) =>
       prisma.$transaction(async (tx) => {
@@ -86,6 +96,16 @@ function createScheduleRepo(prisma) {
         if (batch.mode === 'REPLACE') {
           replaced = (await tx.classSchedule.updateMany({ where: { status: 'ACTIVE', batch: { semester: batch.semester }, batchId: { not: id } }, data: { status: 'CANCELLED' } })).count;
         }
+        // Kiểm tra lại trong giao dịch: buổi mới không được trùng phòng, trùng giờ với buổi ACTIVE còn lại (lần nhập khác
+        // có thể đã xác nhận sau khi xem trước). Có trùng thì ném lỗi để hoàn tác toàn bộ.
+        const clash = await tx.$queryRaw(Prisma.sql`
+          SELECT n.course_code AS "courseCode", n.class_code AS "classCode", o.course_code AS "otherCourse", o.class_code AS "otherClass", rm.code AS "roomCode", o.start_at AS "startAt"
+          FROM class_schedule n
+          JOIN class_schedule o ON o.room_id = n.room_id AND o.status = 'ACTIVE' AND tstzrange(o.start_at, o.end_at) && tstzrange(n.start_at, n.end_at)
+          JOIN room rm ON rm.id = n.room_id
+          WHERE n.batch_id = ${id}::uuid AND n.status = 'PENDING'
+          LIMIT 1`);
+        if (clash.length) throw Object.assign(new Error('CLASS_OVERLAP'), { clash: clash[0] });
         const activated = (await tx.classSchedule.updateMany({ where: { batchId: id, status: 'PENDING' }, data: { status: 'ACTIVE' } })).count;
         const ids = conflicts.map((c) => c.requestId);
         if (ids.length) {
@@ -102,7 +122,10 @@ function createScheduleRepo(prisma) {
         await tx.importBatch.update({ where: { id }, data: { conflictCount: conflicts.length } });
         await audit(tx, { userId: actorId, action: 'SCHEDULE_IMPORT_COMMITTED', entityType: 'import_batch', entityId: id, after: { semester: batch.semester, mode: batch.mode, activatedSessions: activated, replacedSessions: replaced, cancelledRequests: ids.length } });
         return { activated, replaced, cancelled: conflicts.map((c) => ({ ...c, cancelReason: cancelReason(c) })) };
-      }, TX),
+      }, TX).catch((err) => {
+        if (err.message === 'CLASS_OVERLAP') return { clash: err.clash };
+        throw err;
+      }),
 
     /** Tra cứu buổi học theo phòng, ngày, trạng thái. Từ ngày và đến ngày là mốc theo giờ Việt Nam đã đổi sang thời điểm. */
     listSessions: async ({ roomCode, from, to, status, page, pageSize }) => {
