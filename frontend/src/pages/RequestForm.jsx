@@ -107,13 +107,14 @@ export default function RequestForm() {
     const body = payload(values);
     const d = draft ? await api(`/requests/${draft.id}`, { method: 'PATCH', body }) : await api('/requests', { method: 'POST', body });
     let current = d.request;
+    setDraft(current);
     for (const f of files.filter((x) => !x.uploaded)) {
       const fd = new FormData();
       fd.append('file', f.originFileObj);
       current = (await api(`/requests/${current.id}/attachments`, { method: 'POST', body: fd })).request;
       f.uploaded = true;
+      setDraft(current);
     }
-    setDraft(current);
     return current;
   };
 

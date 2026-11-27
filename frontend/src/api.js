@@ -3,6 +3,7 @@ import { ApiError } from './errors';
 export { ApiError };
 
 const TOKEN_KEY = 'qlphong.token';
+export const SESSION_EXPIRED = 'auth:expired';
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
 export const setToken = (t) => (t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY));
@@ -33,6 +34,11 @@ export async function api(path, { method = 'GET', body } = {}) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const e = data.error || {};
+    // 401 khi đang có token (trừ lúc đăng nhập) nghĩa là phiên đã hết hạn, bị khóa hoặc bị đặt lại mật khẩu.
+    if (res.status === 401 && token && path !== '/auth/login') {
+      setToken(null);
+      window.dispatchEvent(new Event(SESSION_EXPIRED));
+    }
     throw new ApiError(res.status, e.code || 'ERROR', e.message || `Lỗi máy chủ (${res.status})`, e.details);
   }
   return data;
