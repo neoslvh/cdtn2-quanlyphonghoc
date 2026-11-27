@@ -1,13 +1,18 @@
 import { expect, test } from '@playwright/test';
-import { ACCOUNTS, PASSWORD, apiToken, createRequest, loginAs, pickRange, runTag, stamp, workdaysAhead } from './support';
+import { ACCOUNTS, PASSWORD, apiToken, cleanupCreated, createRequest, loginAs, pickRange, runTag, stamp, workdaysAhead } from './support';
 
 // Các test case trong TestCase_QuanLyPhongHoc_ThietBi.xlsx chưa có kiểm thử tự động ở các spec khác.
 // Tên mỗi test bắt đầu bằng mã test case để đối chiếu với file Excel.
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 // Ngày rất xa và ngẫu nhiên để các lần chạy không đụng lịch của nhau.
 const farDay = () => 150 + Math.floor(Math.random() * 1200);
+// Ngưỡng NFR-03 là 3 giây; máy CI chậm có thể nới bằng E2E_PERF_LIMIT_MS.
+const PERF_LIMIT = Number(process.env.E2E_PERF_LIMIT_MS || 3000);
+const extraUsers: string[] = [];
 
 test.describe('E2E-14 kiểm thử theo test case', () => {
+  test.afterAll(async ({ request }) => cleanupCreated(request, extraUsers.splice(0)));
+
   test('TC-API-01 GET /api/hello trả lời chào và số phòng khớp danh sách phòng trong PostgreSQL', async ({ request }) => {
     const hello = await (await request.get('/api/hello')).json();
     expect(hello.message).toBe('Xin chào từ API quản lý phòng học');
@@ -30,6 +35,7 @@ test.describe('E2E-14 kiểm thử theo test case', () => {
     const orgs = (await (await request.get('/api/organizations?scope=all', { headers: admin })).json()).items;
     const email = `doivaitro.${runTag()}${Math.floor(Math.random() * 1000)}@qlphong.local`;
     const created = await (await request.post('/api/users', { headers: admin, data: { fullName: 'Người đổi vai trò', email, organizationId: orgs.find((o: { name: string }) => o.name === 'Phòng Đào tạo').id, role: 'REQUESTER' } })).json();
+    extraUsers.push(created.user.id);
     const first = (await (await request.post('/api/auth/login', { data: { email, password: created.temporaryPassword } })).json()).token;
     await request.post('/api/auth/change-password', { headers: bearer(first), data: { currentPassword: created.temporaryPassword, newPassword: PASSWORD } });
 
@@ -99,8 +105,8 @@ test.describe('E2E-14 kiểm thử theo test case', () => {
     await expect(page.locator('.ant-table-tbody tr.ant-table-row').first()).toBeVisible();
     const search = Date.now() - t0;
     test.info().annotations.push({ type: 'thời gian', description: `tải trang ${load} ms, tra cứu ${search} ms` });
-    expect(load).toBeLessThan(3000);
-    expect(search).toBeLessThan(3000);
+    expect(load).toBeLessThan(PERF_LIMIT);
+    expect(search).toBeLessThan(PERF_LIMIT);
   });
   test('TC-NFR06-02 ở chiều rộng 375px các trang chính không tràn ngang, thao tác chính vẫn thấy được', async ({ page, request }) => {
     await page.setViewportSize({ width: 375, height: 812 });
