@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { APIRequestContext, expect, test } from '@playwright/test';
 import { ACCOUNTS, apiToken, approveAll, cleanupCreated, createApprover, createRequest, loginAs, runTag } from './support';
 
@@ -5,6 +6,10 @@ import { ACCOUNTS, apiToken, approveAll, cleanupCreated, createApprover, createR
 // Dùng phòng C.03.02 vì các bộ test khác không đặt phòng này; thiết bị bị báo hỏng không tự trở lại Tốt khi chưa có bảo trì (SCRUM-25).
 const ROOM = 'C.03.02';
 const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
+// Lệnh psql tới cơ sở dữ liệu kiểm thử, ví dụ `docker exec qlphong-test-db psql -U qlphong -d qlphong`. Chỉ dùng để dời giờ
+// phiếu về hiện tại (phiếu thật phải gửi trước ba ngày làm việc) và trả thiết bị về Tốt sau khi thử.
+const PSQL = process.env.E2E_PSQL;
+const sql = (q: string) => execSync(`${PSQL} -c "${q}"`);
 
 async function roomOf(request: APIRequestContext, code: string) {
   const h = auth(await apiToken(request, ACCOUNTS.requester.email));
@@ -83,5 +88,42 @@ test.describe('E2E-15 mã QR, check-in, báo hỏng', () => {
     await expect(modal.getByText(/^Chỉ báo hỏng được trong thời gian sử dụng phòng, từ /)).toBeVisible();
     const after = await roomOf(request, ROOM);
     expect(after.equipmentItems.find((e: { id: string }) => e.id === eq.id).status).toBe(eq.status);
+  });
+
+  test('TC-FR18-01, TC-FR19-02 trong giờ dùng phòng: check-in thành công, báo hỏng kèm ảnh, nhân viên thấy trong danh sách', async ({ page, request }) => {
+    test.skip(!PSQL, 'Cần E2E_PSQL để dời giờ phiếu về hiện tại trong cơ sở dữ liệu kiểm thử');
+    const r = await approvedRequest(request);
+    const room = await roomOf(request, ROOM);
+    const eq = room.equipmentItems.find((e: { equipmentType: string }) => e.equipmentType === 'AIR_CONDITIONER');
+    const desc = `Máy lạnh không mát ${runTag()}`;
+    const window = "start_at = now() + interval '5 minutes', end_at = now() + interval '65 minutes'";
+    sql(`UPDATE usage_request SET ${window} WHERE id = '${r.id}'; UPDATE room_booking SET ${window} WHERE request_id = '${r.id}'; UPDATE equipment SET status = 'GOOD' WHERE id = '${eq.id}';`);
+    try {
+      await loginAs(page, request, ACCOUNTS.requester.email, `/requests/${r.id}`);
+      await page.getByLabel('Mã QR phòng').fill(`https://qlphong.test/qr/${(await roomToken(request, room.id)).token}`);
+      await page.getByRole('button', { name: 'Xác nhận check-in' }).click();
+      await expect(page.getByText(/^Đã check-in lúc /)).toBeVisible();
+
+      await page.getByRole('button', { name: 'Báo hỏng thiết bị' }).click();
+      const modal = page.locator('.ant-modal');
+      await modal.locator('.ant-select').click();
+      await page.locator('.ant-select-item-option').filter({ hasText: eq.assetCode }).click();
+      await modal.getByPlaceholder(/Máy chiếu không lên hình/).fill(desc);
+      await modal.locator('input[type=file]').setInputFiles({ name: 'may-lanh.png', mimeType: 'image/png', buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]) });
+      await modal.getByRole('button', { name: 'Gửi báo hỏng' }).click();
+      await expect(page.getByText('Đã gửi báo hỏng, nhân viên cơ sở vật chất sẽ xử lý')).toBeVisible();
+      expect((await roomOf(request, ROOM)).equipmentItems.find((e: { id: string }) => e.id === eq.id).status).toBe('BROKEN');
+
+      await loginAs(page, request, ACCOUNTS.facility.email, '/facility');
+      await page.getByRole('tab', { name: 'Báo hỏng và bảo trì' }).click();
+      const row = page.locator('.ant-table-tbody tr.ant-table-row').filter({ hasText: desc });
+      await expect(row).toContainText(eq.assetCode);
+      await expect(row).toContainText(ROOM);
+      await expect(row).toContainText(r.code);
+    } finally {
+      // Trả phiếu về giờ cũ để lần chạy sau không trùng lượt đặt; chưa có phiếu bảo trì (SCRUM-25) nên đưa thiết bị về Tốt bằng SQL.
+      const back = `start_at = '${r.startAt}', end_at = '${r.endAt}'`;
+      sql(`UPDATE room_booking SET ${back} WHERE request_id = '${r.id}'; UPDATE usage_request SET ${back} WHERE id = '${r.id}'; UPDATE equipment SET status = 'GOOD' WHERE id = '${eq.id}';`);
+    }
   });
 });
