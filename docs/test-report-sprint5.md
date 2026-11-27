@@ -42,7 +42,7 @@ Sau khi chạy đủ bộ tự động, nhóm thử thêm các tình huống ngo
 
 Lỗi giao diện đã sửa: tải tệp đính kèm lỗi rồi bấm lưu lại tạo phiếu nháp trùng (TC-FR07-09); phiên hết hạn hoặc bị thu hồi giữa chừng thì giao diện vẫn giữ người dùng trong hệ thống và trang nào cũng báo lỗi (TC-FR01-08); đăng nhập xong luôn về Trang chủ thay vì trang đang mở dở.
 
-Lỗi backend còn mở: phiếu quá giờ bắt đầu mà chưa duyệt vẫn ở trạng thái chờ và vẫn duyệt được, chưa có quy tắc hết hạn BR-07 (TC-FR12-04); chi tiết phiếu không trả lý do từ chối cho người đăng ký (TC-FR13-06); nhập lớp mới trùng phòng, trùng giờ với lớp đã có từ lần nhập trước vẫn được kích hoạt (TC-FR23-08). Sửa buổi học vào giờ đã có lượt đặt được duyệt thì bị chặn đúng.
+Lỗi backend còn mở: phiếu quá giờ bắt đầu mà chưa duyệt vẫn ở trạng thái chờ và vẫn duyệt được, chưa có quy tắc hết hạn BR-07 (TC-FR12-04, SCRUM-31); chi tiết phiếu không trả lý do từ chối cho người đăng ký (TC-FR13-06, SCRUM-32); nhập lớp mới trùng phòng, trùng giờ với lớp đã có từ lần nhập trước vẫn được kích hoạt (TC-FR23-08, SCRUM-33). Sửa buổi học vào giờ đã có lượt đặt được duyệt thì bị chặn đúng.
 
 ## 6. Phần chưa tự động hóa được
 
