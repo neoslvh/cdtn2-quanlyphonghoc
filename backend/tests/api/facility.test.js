@@ -30,7 +30,14 @@ async function approved(ctx, status = 'APPROVED') {
 }
 
 describe('SCRUM-10: mã QR của phòng và thiết bị', () => {
-  afterEach(() => { delete process.env.APP_URL; });
+  const KEYS = ['APP_URL', 'RENDER_EXTERNAL_URL', 'NODE_ENV'];
+  const saved = Object.fromEntries(KEYS.map((k) => [k, process.env[k]]));
+  afterEach(() => {
+    for (const k of KEYS) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+  });
 
   test('nhân viên cơ sở vật chất tải được ảnh QR chứa đường dẫn /qr/{token}; người đăng ký bị chặn', async () => {
     const ctx = setup();
@@ -48,6 +55,18 @@ describe('SCRUM-10: mã QR của phòng và thiết bị', () => {
     const ctx = setup();
     const res = await request(ctx.app).get(`/api/rooms/${ctx.room.id}/qr`).set(ctx.staff.auth).set('Host', 'phong.vlu.test').set('X-Forwarded-Proto', 'https');
     expect(svgOf(res)).toBe(qrSvg('https://phong.vlu.test/qr/qr-room-1', 'A.10.01', 'qr-room-1'));
+  });
+
+  test('production không lấy địa chỉ từ header Host: dùng APP_URL hoặc RENDER_EXTERNAL_URL, thiếu cả hai thì báo lỗi cấu hình', async () => {
+    const ctx = setup();
+    process.env.NODE_ENV = 'production';
+    delete process.env.APP_URL;
+    delete process.env.RENDER_EXTERNAL_URL;
+    const bad = await request(ctx.app).get(`/api/rooms/${ctx.room.id}/qr`).set(ctx.staff.auth).set('Host', 'gia-mao.example');
+    expect([bad.status, bad.body.error.code]).toEqual([500, 'CONFIG_ERROR']);
+    process.env.RENDER_EXTERNAL_URL = 'https://qlphong.onrender.com';
+    const ok = await request(ctx.app).get(`/api/rooms/${ctx.room.id}/qr`).set(ctx.staff.auth).set('Host', 'gia-mao.example');
+    expect(svgOf(ok)).toBe(qrSvg('https://qlphong.onrender.com/qr/qr-room-1', 'A.10.01', 'qr-room-1'));
   });
 
   test('quét mã mở đúng tài nguyên và hiện đúng trạng thái hiện tại, kể cả khi ngừng hoạt động', async () => {
@@ -96,15 +115,23 @@ describe('SCRUM-23: check-in bằng QR tại phòng', () => {
     }
   });
 
-  test('sai giờ bị từ chối: sớm hơn 15 phút trước giờ bắt đầu hoặc sau giờ kết thúc', async () => {
+  test('sai giờ bị từ chối: sớm hơn 15 phút trước giờ bắt đầu hoặc sau giờ kết thúc, tính đến từng giây', async () => {
     const ctx = setup();
     const id = await approved(ctx);
-    for (const t of [fromVN(2026, 11, 9, 7, 44), fromVN(2026, 11, 9, 10, 1)]) {
+    const sec = (d, n) => new Date(d.getTime() + n * 1000);
+    for (const t of [sec(fromVN(2026, 11, 9, 7, 45), -1), fromVN(2026, 11, 9, 7, 44), sec(fromVN(2026, 11, 9, 10), 1), fromVN(2026, 11, 9, 10, 1)]) {
       ctx.clock.now = t;
       const res = await checkin(ctx, id, 'qr-room-1');
       expect([res.status, res.body.error.message]).toEqual([409, 'Chỉ check-in được từ 07:45 09/11/2026 đến 10:00 09/11/2026.']);
     }
     ctx.clock.now = fromVN(2026, 11, 9, 10);
+    expect((await checkin(ctx, id, 'qr-room-1')).status).toBe(200);
+  });
+
+  test('đúng mốc 15 phút trước giờ bắt đầu thì check-in được', async () => {
+    const ctx = setup();
+    const id = await approved(ctx);
+    ctx.clock.now = fromVN(2026, 11, 9, 7, 45);
     expect((await checkin(ctx, id, 'qr-room-1')).status).toBe(200);
   });
 
@@ -157,6 +184,7 @@ describe('SCRUM-24: báo hỏng thiết bị', () => {
   test('ảnh là tùy chọn; mô tả bắt buộc; thiết bị phải thuộc phòng của phiếu', async () => {
     const ctx = setup();
     const id = await approved(ctx);
+    ctx.clock.now = fromVN(2026, 11, 9, 9);
     const noImg = await report(ctx, { requestId: id, equipmentId: ctx.pj.id, description: 'Hỏng' });
     expect([noImg.status, noImg.body.incident.imageName]).toEqual([201, null]);
     const noDesc = await report(ctx, { requestId: id, equipmentId: ctx.pj.id, description: ' ' });
@@ -169,6 +197,7 @@ describe('SCRUM-24: báo hỏng thiết bị', () => {
   test('ảnh không phải PNG hoặc JPG thật bị từ chối và không lưu tệp', async () => {
     const ctx = setup();
     const id = await approved(ctx);
+    ctx.clock.now = fromVN(2026, 11, 9, 9);
     for (const file of [{ buffer: Buffer.from('GIF89a'), name: 'anh.gif' }, { buffer: Buffer.from('MZ fake'), name: 'anh.png' }]) {
       const res = await report(ctx, { requestId: id, equipmentId: ctx.pj.id, description: 'Hỏng' }, file);
       expect([res.status, res.body.error.code]).toEqual([415, 'UNSUPPORTED_FILE_TYPE']);
@@ -179,10 +208,36 @@ describe('SCRUM-24: báo hỏng thiết bị', () => {
 
   test('chỉ báo hỏng trong phiếu đã duyệt của chính mình', async () => {
     const ctx = setup();
+    ctx.clock.now = fromVN(2026, 11, 9, 9);
     const pending = await approved(ctx, 'PENDING');
     expect((await report(ctx, { requestId: pending, equipmentId: ctx.pj.id, description: 'Hỏng' })).status).toBe(409);
     const id = await approved(ctx);
     expect((await report(ctx, { requestId: id, equipmentId: ctx.pj.id, description: 'Hỏng' }, null, ctx.stranger)).status).toBe(404);
     expect((await report(ctx, { requestId: id, equipmentId: ctx.pj.id, description: 'Hỏng' }, null, ctx.staff)).status).toBe(403);
+  });
+
+  test('chỉ báo hỏng trong thời gian dùng phòng; ảnh đã lưu bị xóa khi bị từ chối', async () => {
+    const ctx = setup();
+    const id = await approved(ctx);
+    for (const t of [fromVN(2026, 11, 9, 7, 44), fromVN(2026, 11, 9, 10, 1)]) {
+      ctx.clock.now = t;
+      const res = await report(ctx, { requestId: id, equipmentId: ctx.pj.id, description: 'Hỏng' });
+      expect([res.status, res.body.error.message]).toEqual([409, 'Chỉ báo hỏng được trong thời gian sử dụng phòng, từ 07:45 09/11/2026 đến 10:00 09/11/2026.']);
+    }
+    expect(ctx.pj.status).toBe('GOOD');
+  });
+
+  test('thiết bị đã báo hỏng hoặc đang bảo trì thì không báo lại, giữ nguyên trạng thái', async () => {
+    const ctx = setup();
+    const id = await approved(ctx);
+    ctx.clock.now = fromVN(2026, 11, 9, 9);
+    expect((await report(ctx, { requestId: id, equipmentId: ctx.pj.id, description: 'Hỏng' })).status).toBe(201);
+    const again = await report(ctx, { requestId: id, equipmentId: ctx.pj.id, description: 'Vẫn hỏng' }, { buffer: PNG, name: 'a.png' });
+    expect([again.status, again.body.error.message]).toEqual([409, 'Thiết bị PJ-A1001-1 đã được báo hỏng và đang chờ xử lý.']);
+    expect(ctx.storage.saved).toHaveLength(0);
+    ctx.pj.status = 'MAINTENANCE';
+    const mt = await report(ctx, { requestId: id, equipmentId: ctx.pj.id, description: 'Hỏng' });
+    expect([mt.status, mt.body.error.message, ctx.pj.status]).toEqual([409, 'Thiết bị PJ-A1001-1 đang bảo trì.', 'MAINTENANCE']);
+    expect(ctx.db.incidents).toHaveLength(1);
   });
 });

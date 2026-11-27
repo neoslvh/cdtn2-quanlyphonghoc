@@ -31,6 +31,7 @@ maybe('mã QR, check-in, báo hỏng trên PostgreSQL thật', () => {
     other = await prisma.room.findUnique({ where: { code: 'A.10.01' } });
     eq = await prisma.equipment.findFirst({ where: { roomId: room.id, equipmentType: 'PROJECTOR' } });
     eqStatus = eq.status;
+    await prisma.equipment.update({ where: { id: eq.id }, data: { status: 'GOOD' } });
   });
   afterAll(async () => {
     const ids = (await prisma.usageRequest.findMany({ where: { purpose: tag }, select: { id: true } })).map((r) => r.id);
@@ -80,5 +81,15 @@ maybe('mã QR, check-in, báo hỏng trên PostgreSQL thật', () => {
     expect(open.items.map((x) => x.id)).toContain(i.id);
     expect((await facility.listIncidents({ status: 'RESOLVED' }, { page: 1, pageSize: 100 })).items.map((x) => x.id)).not.toContain(i.id);
     expect(await prisma.auditLog.count({ where: { entityId: i.id, action: 'INCIDENT_REPORTED' } })).toBe(1);
+  });
+
+  test('SCRUM-24 hai báo hỏng cùng lúc cho một thiết bị: đúng một báo hỏng được tạo, lần kia INVALID_STATE', async () => {
+    await prisma.equipment.update({ where: { id: eq.id }, data: { status: 'GOOD' } });
+    const id = await approved();
+    const send = () => facility.reportIncident(requester, { requestId: id, equipmentId: eq.id, description: 'Cùng lúc' }, null);
+    const res = await Promise.allSettled([send(), send()]);
+    expect(res.map((x) => x.status).sort()).toEqual(['fulfilled', 'rejected']);
+    expect(res.find((x) => x.status === 'rejected').reason.code).toBe('INVALID_STATE');
+    expect(await prisma.incidentReport.count({ where: { requestId: id } })).toBe(1);
   });
 });
