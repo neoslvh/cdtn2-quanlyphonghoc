@@ -297,7 +297,7 @@ const pendingStep = (r) => {
   return s;
 };
 
-function approveRequest(r) {
+function approveRequest(r, b) {
   const step = pendingStep(r);
   const next = r.steps.find((x) => x.order === step.order + 1);
   if (!next) {
@@ -313,7 +313,7 @@ function approveRequest(r) {
   } else {
     next.status = 'PENDING';
   }
-  step.status = 'APPROVED';
+  Object.assign(step, { status: 'APPROVED', decisionReason: (b && String(b.reason || '').trim()) || null, decidedAt: new Date().toISOString() });
   return r;
 }
 
@@ -321,7 +321,7 @@ function rejectRequest(r, b) {
   const reason = b && String(b.reason || '').trim();
   if (!reason) throw bad([{ field: 'reason', message: 'Nhập lý do từ chối.' }]);
   const step = pendingStep(r);
-  step.status = 'REJECTED';
+  Object.assign(step, { status: 'REJECTED', decisionReason: reason, decidedAt: new Date().toISOString() });
   r.status = 'REJECTED';
   r.steps = r.steps.map((s) => (s.status === 'WAITING' ? { ...s, status: 'CANCELLED' } : s));
   notify(r, 'Yêu cầu sử dụng phòng bị từ chối', `Yêu cầu ${r.code} bị ${step.organizationName} từ chối: ${reason}`);
@@ -386,7 +386,7 @@ const routes = [
     return { notification: n };
   }),
   route('GET', '/approvals', (m, q) => paginate(requests.filter((r) => r.status === 'PENDING'), q)),
-  route('POST', '/requests/([^/]+)/approve', (m) => ({ request: approveRequest(findRequest(m[1])) })),
+  route('POST', '/requests/([^/]+)/approve', (m, q, b) => ({ request: approveRequest(findRequest(m[1]), b) })),
   route('POST', '/requests/([^/]+)/reject', (m, q, b) => ({ request: rejectRequest(findRequest(m[1]), b) })),
   route('POST', '/requests/([^/]+)/submit', (m) => ({ request: submitRequest(findRequest(m[1])) })),
   route('POST', '/class-schedule/imports', (m, q, b) => createImport(b)),

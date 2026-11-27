@@ -109,6 +109,9 @@ test.describe('E2E-08 duyệt yêu cầu (PB-13, PB-08)', () => {
     expect([after.status, after.steps.map((s: { status: string }) => s.status)]).toEqual(['REJECTED', ['REJECTED', 'CANCELLED']]);
     const inbox = await (await request.get('/api/notifications', { headers: auth(await apiToken(request, ACCOUNTS.requester.email)) })).json();
     expect(inbox.items.find((n: { requestId: string }) => n.requestId === r.id).message).toContain('Trùng sự kiện của trường');
+    // SCRUM-32: người đăng ký thấy lý do và thời điểm từ chối ngay trong chi tiết phiếu.
+    await loginAs(page, request, ACCOUNTS.requester.email, `/requests/${r.id}`);
+    await expect(page.getByText(/Từ chối lúc \d{2}:\d{2} \d{2}\/\d{2}\/\d{4}\. Lý do: Trùng sự kiện của trường/)).toBeVisible();
   });
 
   test('hai phiếu cùng phòng cùng giờ: phiếu duyệt sau bị chặn ở bước cuối và nêu mã phiếu đã duyệt', async ({ page, request }) => {

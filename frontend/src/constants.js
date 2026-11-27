@@ -8,6 +8,7 @@ export const REQUEST_STATUS = {
   APPROVED: ['green', 'Đã duyệt'],
   REJECTED: ['red', 'Từ chối'],
   CANCELLED: ['default', 'Đã hủy'],
+  EXPIRED: ['default', 'Hết hạn'],
 };
 export const SESSION_STATUS = {
   ACTIVE: ['green', 'Đang hiệu lực'],
@@ -25,6 +26,7 @@ export const AUDIT_ACTION = {
   REQUEST_APPROVED: 'Duyệt xong yêu cầu',
   REQUEST_REJECTED: 'Từ chối yêu cầu',
   REQUEST_CANCELLED_BY_SCHEDULE: 'Hủy yêu cầu do trùng lịch học chính khóa',
+  REQUEST_EXPIRED: 'Yêu cầu hết hạn do chưa duyệt kịp',
   ROOM_CREATED: 'Thêm phòng',
   ROOM_UPDATED: 'Sửa phòng',
   SCHEDULE_IMPORT_PREVIEWED: 'Xem trước thời khóa biểu nhập',
