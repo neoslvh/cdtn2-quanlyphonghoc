@@ -6,6 +6,7 @@ const { createGuards } = require('./guards');
 const { approvalRoutes } = require('./routes/approvals');
 const { auditRoutes } = require('./routes/audit');
 const { availabilityRoutes } = require('./routes/availability');
+const { facilityRoutes } = require('./routes/facility');
 const { notificationRoutes } = require('./routes/notifications');
 const { requestRoutes } = require('./routes/requests');
 const { roomRoutes } = require('./routes/rooms');
@@ -14,6 +15,7 @@ const { createDiskStorage } = require('./storage');
 const { createApprovalService } = require('./services/approvalService');
 const { createAuditService } = require('./services/auditService');
 const { createAvailabilityService } = require('./services/availabilityService');
+const { createFacilityService } = require('./services/facilityService');
 const { createNotificationService } = require('./services/notificationService');
 const { createRequestService } = require('./services/requestService');
 const { createScheduleService } = require('./services/scheduleService');
@@ -45,6 +47,7 @@ function createApp({ db, jwtSecret = 'khoa-bi-mat-chi-dung-khi-kiem-thu', bcrypt
   app.use('/api', notificationRoutes({ service: createNotificationService(db), guards }));
   app.use('/api', auditRoutes({ service: createAuditService(db), guards }));
   app.use('/api', roomRoutes({ service: createRoomService(db), guards }));
+  app.use('/api', facilityRoutes({ service: createFacilityService({ repo: db, storage, clock }), guards }));
 
   // API không tồn tại luôn trả JSON, không được rơi vào fallback React khi deploy chung một service.
   app.use('/api', (req, res) => res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Không tìm thấy API.' } }));

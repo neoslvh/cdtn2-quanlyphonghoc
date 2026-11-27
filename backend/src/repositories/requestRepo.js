@@ -11,6 +11,7 @@ const include = {
   equipment: true,
   attachments: { orderBy: { createdAt: 'asc' } },
   steps: { include: { approverOrg: { select: { name: true } } }, orderBy: { stepNo: 'asc' } },
+  checkin: { select: { checkedInAt: true, result: true } },
 };
 
 // Phiếu từ Prisma sang dạng phẳng mà service dùng.

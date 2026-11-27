@@ -19,6 +19,8 @@ function fakeDb() {
   const batches = [];
   const audit = [];
   const notifications = [];
+  const equipment = [];
+  const incidents = [];
   let requestNo = 0;
   const bookings = [];
   const overlaps = (x, from, to) => x.startAt < to && from < x.endAt;
@@ -46,6 +48,8 @@ function fakeDb() {
     batches,
     audit,
     notifications,
+    equipment,
+    incidents,
     countRooms: async () => rooms.length,
     findOrganization: async (oid) => ORGS.find((o) => o.id === oid) || null,
     listOrganizations: async () => ORGS,
@@ -298,7 +302,46 @@ function fakeDb() {
       if (log) audit.push({ ...log(flat(r)), createdAt: new Date() });
       return flat(r);
     },
+
+    // Mã QR, check-in, báo hỏng (facilityRepo).
+    findRoomQr: async (rid) => rooms.find((r) => r.id === rid) || null,
+    findEquipment: async (eid) => withRoom(equipment.find((e) => e.id === eid)),
+    findQrTarget: async (token) => {
+      const room = rooms.find((r) => r.qrToken === token);
+      if (room) return { type: 'ROOM', room };
+      const e = equipment.find((x) => x.qrToken === token);
+      return e ? { type: 'EQUIPMENT', equipment: withRoom(e) } : null;
+    },
+    listRoomEquipment: async (rid) => equipment.filter((e) => e.roomId === rid).map(withRoom),
+    createCheckin: async ({ requestId, userId, roomId, now }) => {
+      const r = requests.find((x) => x.id === requestId);
+      if (r.checkin) return false;
+      r.checkin = { checkedInAt: now, result: 'SUCCESS' };
+      audit.push({ userId, action: 'REQUEST_CHECKED_IN', entityType: 'usage_request', entityId: requestId, after: { roomId } });
+      return true;
+    },
+    createIncident: async ({ requestId, equipmentId, reportedBy, description, imagePath, imageName }) => {
+      const i = { id: `50000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`, requestId, equipmentId, reportedBy, description, imagePath, imageName, status: 'OPEN', createdAt: new Date() };
+      incidents.push(i);
+      equipment.find((e) => e.id === equipmentId).status = 'BROKEN';
+      audit.push({ userId: reportedBy, action: 'INCIDENT_REPORTED', entityType: 'incident_report', entityId: i.id });
+      return incidentView(i);
+    },
+    listIncidents: async ({ status, page, pageSize }) => {
+      const all = incidents.filter((i) => !status || i.status === status).slice().reverse();
+      return { items: all.slice((page - 1) * pageSize, page * pageSize).map(incidentView), total: all.length };
+    },
   };
+  function withRoom(e) {
+    if (!e) return null;
+    const r = rooms.find((x) => x.id === e.roomId);
+    return { ...e, room: r ? { id: r.id, code: r.code } : null };
+  }
+  function incidentView(i) {
+    const r = requests.find((x) => x.id === i.requestId);
+    const e = equipment.find((x) => x.id === i.equipmentId);
+    return { ...i, request: { id: r.id, requestNo: r.requestNo, room: { code: r.room.code } }, equipment: { id: e.id, assetCode: e.assetCode, name: e.name }, reporter: { fullName: users.find((u) => u.id === i.reportedBy).fullName } };
+  }
 }
 
 // Tạo người dùng giả và token đăng nhập của họ.
@@ -311,9 +354,17 @@ function login(db, role, orgId = '00000000-0000-4000-9000-0000000000a1') {
 // Thêm nhanh một phòng vào cơ sở dữ liệu giả (tòa A, cơ sở 1) với thiết bị tốt theo loại.
 function addRoom(db, over = {}) {
   const n = db.rooms.length + 1;
-  const room = { id: `00000000-0000-4000-8000-${String(900 + n).padStart(12, '0')}`, buildingId: 'b-a', code: `A.10.${String(n).padStart(2, '0')}`, name: `Phòng ${n}`, roomType: 'CLASSROOM', capacity: 80, status: 'AVAILABLE', equipment: {}, ...over };
+  const room = { id: `00000000-0000-4000-8000-${String(900 + n).padStart(12, '0')}`, buildingId: 'b-a', code: `A.10.${String(n).padStart(2, '0')}`, name: `Phòng ${n}`, roomType: 'CLASSROOM', capacity: 80, status: 'AVAILABLE', equipment: {}, qrToken: `qr-room-${n}`, ...over };
   db.rooms.push(room);
   return room;
+}
+
+// Thêm một thiết bị vào phòng trong cơ sở dữ liệu giả.
+function addEquipment(db, room, over = {}) {
+  const n = db.equipment.length + 1;
+  const e = { id: `00000000-0000-4000-8000-${String(700 + n).padStart(12, '0')}`, roomId: room ? room.id : null, assetCode: `PJ-${n}`, name: `Máy chiếu ${n}`, equipmentType: 'PROJECTOR', status: 'GOOD', qrToken: `qr-eq-${n}`, ...over };
+  db.equipment.push(e);
+  return e;
 }
 
 // Lưu tệp giả trong bộ nhớ cho test đính kèm.
@@ -323,4 +374,4 @@ function fakeStorage() {
   return { saved, removed, save: async (buffer, ext) => { saved.push({ size: buffer.length, ext }); return `file-${saved.length}${ext}`; }, remove: async (name) => { removed.push(name); } };
 }
 
-module.exports = { fakeDb, login, addRoom, fakeStorage, ORGS, SECRET };
+module.exports = { fakeDb, login, addRoom, addEquipment, fakeStorage, ORGS, SECRET };

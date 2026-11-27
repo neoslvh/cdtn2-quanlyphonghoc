@@ -1,6 +1,7 @@
 const { ApiError, isUniqueViolation } = require('../errors');
 const { isUuid, validation } = require('../http');
 const { checkRoom, checkRoomFilter } = require('../validators/room');
+const { toEquipment } = require('./facilityService');
 
 // Tầng service: toàn bộ quy tắc nghiệp vụ về phòng. Không biết gì về HTTP hay SQL, nhận repo qua constructor
 // nên kiểm thử được bằng repo giả, không cần cơ sở dữ liệu.
@@ -39,11 +40,11 @@ function createRoomService(repo) {
       return { items: items.map(toRoom), total };
     },
 
-    /** Chi tiết một phòng. Lỗi: NOT_FOUND khi id sai định dạng hoặc không có. */
+    /** Chi tiết một phòng kèm danh sách thiết bị (equipmentItems, dùng khi báo hỏng). Lỗi: NOT_FOUND khi id sai định dạng hoặc không có. */
     async get(id) {
       const room = isUuid(id) ? await repo.findRoom(id) : null;
       if (!room) throw notFound();
-      return toRoom(room);
+      return { ...toRoom(room), equipmentItems: (await repo.listRoomEquipment(room.id)).map(toEquipment) };
     },
 
     /**
