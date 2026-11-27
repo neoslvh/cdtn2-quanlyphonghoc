@@ -48,7 +48,7 @@ test.describe('E2E-13 giao diện trên dữ liệu giả (Plan 3)', () => {
     await page.getByPlaceholder('Từ 200 người cần Ban Giám hiệu phê duyệt').fill('Cuối tuần cần Phòng Đào tạo');
     await page.locator('.ant-modal .ant-select').filter({ hasText: 'Chọn đơn vị' }).click();
     await page.locator('.ant-select-item-option').filter({ hasText: 'Phòng Đào tạo' }).click();
-    await page.getByPlaceholder('200').fill('50');
+    await page.getByRole('spinbutton', { name: 'Từ số người' }).fill('50');
     await page.getByRole('button', { name: 'Lưu' }).click();
     await expect(page.getByText('Đã thêm quy tắc')).toBeVisible();
     await expect(rows(page)).toHaveCount(4);
