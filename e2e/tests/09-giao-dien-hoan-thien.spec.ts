@@ -1,26 +1,16 @@
 import { APIRequestContext, expect, test } from '@playwright/test';
-import { ACCOUNTS, apiToken, approveAll, createApprover, createRequest, loginAs, runTag, workdaysAhead } from './support';
+import { ACCOUNTS, approveAll, cleanupCreated, createApprover, createRequest, loginAs, runTag } from './support';
 
 // Hoàn thiện giao diện trên hệ thống thật: Tổng quan, trang 404, tìm tài khoản, kiểm tra trước khi duyệt, in phiếu,
 // menu trên điện thoại, và các trang đã có giao diện nhưng máy chủ chưa có API phải báo rõ thay vì lỗi.
 const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
 
-async function submitted(request: APIRequestContext, purpose: string, daysAhead: number) {
-  const headers = auth(await apiToken(request, ACCOUNTS.requester.email));
-  const orgs = (await (await request.get('/api/organizations', { headers })).json()).items;
-  const rooms = (await (await request.get('/api/rooms', { headers })).json()).items;
-  const d = workdaysAhead(daysAhead);
-  const at = (h: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), h).toISOString();
-  const res = await request.post('/api/requests', {
-    headers,
-    data: { organizationId: orgs.find((o: { name: string }) => o.name === 'Khoa Công nghệ thông tin').id, roomId: rooms.find((r: { code: string }) => r.code === 'D.02.01').id, purpose, startAt: at(15), endAt: at(16), participantCount: 30 },
-  });
-  const r = (await res.json()).request as { id: string; code: string };
-  expect((await request.post(`/api/requests/${r.id}/submit`, { headers })).status()).toBe(200);
-  return r;
-}
+// Phiếu đã gửi lúc 15:00, tạo qua hàm dùng chung để được dọn sau khi chạy.
+const submitted = (request: APIRequestContext, purpose: string, daysAhead: number) => createRequest(request, { purpose, daysAhead, hour: 15 });
 
 test.describe('E2E-11 hoàn thiện giao diện (Plan 2)', () => {
+  test.afterAll(async ({ request }) => cleanupCreated(request));
+
   test('Tổng quan của người đăng ký có số liệu nhanh, bấm Đang duyệt mở danh sách đã lọc sẵn', async ({ page, request }) => {
     await submitted(request, `Tổng quan ${runTag()}`, 70);
     await loginAs(page, request, ACCOUNTS.requester.email, '/');
@@ -84,6 +74,7 @@ test.describe('E2E-11 hoàn thiện giao diện (Plan 2)', () => {
     await page.getByRole('button', { name: 'In phiếu / Lưu PDF' }).click();
     expect(await page.evaluate(() => (window as unknown as { printed: number }).printed)).toBe(1);
   });
+
   test('trên điện thoại menu cuộn ngang, trang không bị tràn chiều ngang', async ({ page, request }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await loginAs(page, request, ACCOUNTS.admin.email, '/');

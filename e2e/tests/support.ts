@@ -52,6 +52,9 @@ export const runTag = () => Date.now().toString(36).toUpperCase().slice(-5);
 
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
+// Dữ liệu thử tạo trong một lần chạy, để cleanupCreated() dọn ở afterAll.
+const created = { requests: [] as string[], users: [] as string[] };
+
 /** Tạo (và tùy chọn gửi) một phiếu của người đăng ký mẫu qua API. Giờ tính theo giờ máy, ngày cách hôm nay daysAhead ngày làm việc. */
 export async function createRequest(
   request: APIRequestContext,
@@ -68,6 +71,7 @@ export async function createRequest(
   });
   if (res.status() !== 201) throw new Error(`Tạo phiếu thất bại: ${res.status()} ${await res.text()}`);
   const r = (await res.json()).request as { id: string; code: string; steps: { organizationName: string; status: string }[] };
+  created.requests.push(r.id);
   if (!submit) return r;
   const sent = await request.post(`/api/requests/${r.id}/submit`, { headers });
   if (sent.status() !== 200) throw new Error(`Gửi phiếu thất bại: ${sent.status()} ${await sent.text()}`);
@@ -81,7 +85,9 @@ export async function createApprover(request: APIRequestContext, orgName: string
   const email = `duyet.${runTag()}${Math.floor(Math.random() * 1000)}@qlphong.local`;
   const res = await request.post('/api/users', { headers: admin, data: { fullName: `Người duyệt ${orgName}`, email, organizationId: orgs.find((o: { name: string }) => o.name === orgName).id, role: 'APPROVER' } });
   if (res.status() !== 201) throw new Error(`Tạo người duyệt thất bại: ${res.status()}`);
-  const temp = (await res.json()).temporaryPassword;
+  const made = await res.json();
+  created.users.push(made.user.id);
+  const temp = made.temporaryPassword;
   const first = (await (await request.post('/api/auth/login', { data: { email, password: temp } })).json()).token;
   await request.post('/api/auth/change-password', { headers: bearer(first), data: { currentPassword: temp, newPassword: PASSWORD } });
   return email;
@@ -93,4 +99,12 @@ export async function approveAll(request: APIRequestContext, id: string, facilit
     const res = await request.post(`/api/requests/${id}/approve`, { headers: bearer(await apiToken(request, email)), data: {} });
     if (res.status() !== 200) throw new Error(`Duyệt thất bại: ${res.status()} ${await res.text()}`);
   }
+}
+
+/** Hủy các phiếu còn nháp hoặc đang duyệt và khóa các tài khoản thử đã tạo. Phiếu đã duyệt giữ lại vì không hủy được qua API. */
+export async function cleanupCreated(request: APIRequestContext, extraUsers: string[] = []) {
+  const requester = bearer(await apiToken(request, ACCOUNTS.requester.email));
+  for (const id of created.requests.splice(0)) await request.post(`/api/requests/${id}/cancel`, { headers: requester, data: { reason: 'Dọn dữ liệu kiểm thử' } });
+  const admin = bearer(await apiToken(request, ACCOUNTS.admin.email));
+  for (const id of [...created.users.splice(0), ...extraUsers]) await request.patch(`/api/users/${id}`, { headers: admin, data: { status: 'LOCKED' } });
 }
