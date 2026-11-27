@@ -51,7 +51,11 @@ export function PendingApi({ what, jira }) {
 export function QrModal({ target, onClose }) {
   const [state, setState] = useState({ url: null, error: null });
   useEffect(() => {
-    if (!target) return undefined;
+    // Đóng hộp thoại thì bỏ ảnh cũ, để lần sau không vẽ ảnh của đối tượng trước.
+    if (!target) {
+      setState({ url: null, error: null });
+      return undefined;
+    }
     let url = null;
     let ignore = false;
     setState({ url: null, error: null });
@@ -92,7 +96,7 @@ export function QrModal({ target, onClose }) {
       footer={[<Button key="close" onClick={onClose}>Đóng</Button>, <Button key="print" type="primary" disabled={!state.url} onClick={print}>In mã QR</Button>]}>
       {state.error && (isApiPending(state.error) ? <PendingApi what="mã QR" jira="SCRUM-10" /> : <Alert type="error" showIcon title={state.error.message} />)}
       {!state.error && !state.url && <Spin />}
-      {state.url && <img className="qr-image" src={state.url} alt={`Mã QR ${target.label}`} />}
+      {target && state.url && <img className="qr-image" src={state.url} alt={`Mã QR ${target.label}`} />}
     </Modal>
   );
 }
