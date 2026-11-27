@@ -29,6 +29,16 @@ test.describe('E2E-01 đăng nhập và đăng xuất', () => {
     await page.goto('/rooms/search');
     await expect(page).toHaveURL(/\/login$/);
   });
+
+  test('mở đường dẫn kèm bộ lọc khi chưa đăng nhập, đăng nhập xong về đúng trang và giữ bộ lọc', async ({ page }) => {
+    await page.goto('/requests?status=PENDING');
+    await expect(page).toHaveURL(/\/login$/);
+    await page.getByLabel('Email').fill(ACCOUNTS.requester.email);
+    await page.getByLabel('Mật khẩu').fill(PASSWORD);
+    await page.getByRole('button', { name: 'Đăng nhập' }).click();
+    await expect(page).toHaveURL(/\/requests\?status=PENDING$/);
+    await expect(page.locator('.ant-select').first()).toContainText('Đang duyệt');
+  });
 });
 
 test.describe('E2E-02 phân quyền theo vai trò (PB-02)', () => {
