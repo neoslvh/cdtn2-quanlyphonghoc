@@ -81,7 +81,7 @@ maybe('thời khóa biểu trên PostgreSQL thật', () => {
   });
 
   test('năm yêu cầu cùng xác nhận một lần nhập: đúng một thành công, buổi học chỉ được kích hoạt một lần', async () => {
-    const p = await schedule.createImport(admin, csv([line('K-RACE')]), { semester, mode: 'APPEND' });
+    const p = await schedule.createImport(admin, csv([line('K-RACE')]), { semester, mode: 'REPLACE' });
     const results = await Promise.allSettled(Array.from({ length: 5 }, () => schedule.commit(admin, p.batchId)));
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
     expect(results.filter((r) => r.status === 'rejected').every((r) => r.reason.code === 'INVALID_STATE')).toBe(true);
@@ -89,7 +89,7 @@ maybe('thời khóa biểu trên PostgreSQL thật', () => {
   });
 
   test('hủy xem trước xóa các buổi PENDING; sửa buổi sang giờ trùng buổi khác bị chặn ROOM_CONFLICT', async () => {
-    const p = await schedule.createImport(admin, csv([line('K-DISCARD')]), { semester, mode: 'APPEND' });
+    const p = await schedule.createImport(admin, csv([line('K-DISCARD')]), { semester, mode: 'REPLACE' });
     await schedule.discard(admin, p.batchId);
     expect(await prisma.classSchedule.count({ where: { batchId: p.batchId } })).toBe(0);
     const sessions = await prisma.classSchedule.findMany({ where: { batch: { semester }, status: 'ACTIVE' }, orderBy: { startAt: 'asc' } });

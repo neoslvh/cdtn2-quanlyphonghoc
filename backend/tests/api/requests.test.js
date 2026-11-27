@@ -53,7 +53,7 @@ describe('luồng tạo, đính kèm, gửi', () => {
     expect(created.body.request).toMatchObject({ code: 'REQ-001', status: 'DRAFT', startAt: day(12, 8), participantCount: 40 });
     const sent = await request(app).post(`/api/requests/${created.body.request.id}/submit`).set(who);
     expect(sent.status).toBe(200);
-    expect(sent.body.request.steps[0]).toEqual({ order: 1, organizationName: 'Phòng Đào tạo', status: 'PENDING' });
+    expect(sent.body.request.steps[0]).toEqual({ order: 1, organizationName: 'Phòng Đào tạo', status: 'PENDING', decisionReason: null, decidedAt: null });
     const mine = await request(app).get('/api/requests').set(who);
     expect(mine.body).toMatchObject({ total: 1, page: 1, pageSize: 20 });
     expect((await request(app).get('/api/requests').set(login(db, 'REQUESTER').auth)).body.total).toBe(0);

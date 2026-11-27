@@ -88,7 +88,7 @@ maybe('nhật ký và thông báo trên PostgreSQL thật', () => {
   });
 
   test('hủy bản xem trước ghi nhật ký; nhật ký tra cứu được theo người thực hiện', async () => {
-    const preview = await schedule.createImport(pdt, csv('K-AU3'), { semester, mode: 'APPEND' });
+    const preview = await schedule.createImport(pdt, csv('K-AU3'), { semester, mode: 'REPLACE' });
     await schedule.discard(pdt, preview.batchId);
     const log = await audits.list({ entityType: 'import_batch', entityId: preview.batchId, userId: pdt.id }, { page: 1, pageSize: 10 });
     expect(log.items.map((a) => a.action).sort()).toEqual(['SCHEDULE_IMPORT_DISCARDED', 'SCHEDULE_IMPORT_PREVIEWED']);
