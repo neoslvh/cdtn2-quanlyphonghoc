@@ -37,3 +37,27 @@ export async function api(path, { method = 'GET', body } = {}) {
   }
   return data;
 }
+
+// Máy chủ trả 404 với thông điệp này cho đường dẫn API chưa được cài đặt (backend/src/app.js).
+// Giao diện dùng để hiện "chức năng đang chờ API" thay vì báo lỗi, cho các màn hình làm trước phần backend.
+export const isApiPending = (err) => err?.status === 404 && err.message === 'Không tìm thấy API.';
+
+// Tải tệp nhị phân (ảnh QR, PDF) có kèm token đăng nhập. Lỗi trả về theo cùng mẫu với api().
+export async function apiBlob(path) {
+  if (USE_MOCK) {
+    const mock = await import('./mock');
+    if (mock.mockHandles('GET', path)) return mock.mockCall('GET', path);
+  }
+  const token = getToken();
+  let res;
+  try {
+    res = await fetch(`/api${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  } catch {
+    throw new ApiError(0, 'NETWORK', 'Không kết nối được máy chủ. Vui lòng thử lại sau.');
+  }
+  if (!res.ok) {
+    const e = (await res.json().catch(() => ({}))).error || {};
+    throw new ApiError(res.status, e.code || 'ERROR', e.message || `Lỗi máy chủ (${res.status})`, e.details);
+  }
+  return res.blob();
+}

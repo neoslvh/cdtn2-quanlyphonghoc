@@ -40,3 +40,9 @@ export const SCHEDULE_COLUMNS = ['Học kỳ', 'Mã môn', 'Tên môn', 'Lớp',
 export const canManageRooms = (u) => ['FACILITY_STAFF', 'ADMIN'].includes(u.role);
 // Chỉ Phòng Đào tạo và quản trị viên được nhập lịch học chính khóa (BR-12). Đây chỉ để ẩn menu, quyền thật do máy chủ kiểm tra khi có API.
 export const canManageSchedule = (u) => u.role === 'ADMIN' || (u.role === 'APPROVER' && u.organization?.name === 'Phòng Đào tạo');
+// Thiết bị (FR-04): loại thiết bị là tài sản gắn với phòng, khớp EQUIPMENT_TYPES của backend.
+export const EQUIPMENT_TYPE = { PROJECTOR: 'Máy chiếu', MICROPHONE: 'Micro', AUDIO: 'Âm thanh', AIR_CONDITIONER: 'Máy lạnh' };
+export const EQUIPMENT_STATUS = { GOOD: ['green', 'Tốt'], BROKEN: ['red', 'Hỏng'], MAINTENANCE: ['orange', 'Đang bảo trì'] };
+export const INCIDENT_STATUS = { OPEN: ['red', 'Mới báo'], IN_PROGRESS: ['orange', 'Đang bảo trì'], RESOLVED: ['green', 'Đã xử lý'] };
+// Bàn giao, báo hỏng, bảo trì: nhân viên cơ sở vật chất thao tác, quản trị viên chỉ xem (API Contract bảng 1.2).
+export const canViewFacility = (u) => ['FACILITY_STAFF', 'ADMIN'].includes(u.role);

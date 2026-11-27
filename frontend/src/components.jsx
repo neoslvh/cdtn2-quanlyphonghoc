@@ -1,5 +1,7 @@
-import { Alert, Steps } from 'antd';
+import { useEffect, useState } from 'react';
+import { Alert, Button, Modal, Spin, Steps } from 'antd';
 import dayjs from 'dayjs';
+import { apiBlob, isApiPending } from './api';
 import { STEP_STATUS } from './constants';
 
 // Khoảng thời gian dạng "08:00 09/11/2026 đến 10:00".
@@ -31,3 +33,66 @@ export function StepsView({ steps }) {
 
 // Tên đơn vị đang xử lý phiếu, hoặc chuỗi rỗng khi không còn bước nào chờ.
 export const pendingOrg = (steps) => steps.find((s) => s.status === 'PENDING')?.organizationName || '';
+
+// Chức năng đã có giao diện nhưng máy chủ chưa có API: báo rõ thay vì hiện lỗi 404.
+export function PendingApi({ what, jira }) {
+  return (
+    <Alert
+      type="info"
+      showIcon
+      style={{ marginBottom: 16 }}
+      title={`Chức năng ${what} chưa có API ở máy chủ`}
+      description={`Giao diện đã sẵn sàng theo API Contract. Khi backend hoàn thành${jira ? ` (${jira})` : ''}, trang này tự dùng dữ liệu thật mà không cần sửa giao diện.`}
+    />
+  );
+}
+
+// Ảnh mã QR của phòng hoặc thiết bị, tải từ API kèm token. In ra để dán tại phòng hoặc lên thiết bị (FR-05).
+export function QrModal({ target, onClose }) {
+  const [state, setState] = useState({ url: null, error: null });
+  useEffect(() => {
+    if (!target) return undefined;
+    let url = null;
+    let ignore = false;
+    setState({ url: null, error: null });
+    apiBlob(target.path)
+      .then((blob) => {
+        if (ignore) return;
+        url = URL.createObjectURL(blob);
+        setState({ url, error: null });
+      })
+      .catch((error) => { if (!ignore) setState({ url: null, error }); });
+    return () => {
+      ignore = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [target]);
+
+  // In riêng tem QR trong một cửa sổ mới, không in cả trang.
+  const print = () => {
+    const w = window.open('', '_blank', 'width=420,height=520');
+    if (!w) return;
+    const doc = w.document;
+    doc.title = `QR ${target.label}`;
+    const box = doc.createElement('div');
+    box.style.cssText = 'font-family:sans-serif;text-align:center;padding:24px';
+    const img = doc.createElement('img');
+    img.src = state.url;
+    img.style.cssText = 'width:280px;height:280px';
+    const cap = doc.createElement('p');
+    cap.textContent = target.label;
+    cap.style.cssText = 'font-size:18px;font-weight:700;margin:12px 0 0';
+    box.append(img, cap);
+    doc.body.append(box);
+    img.onload = () => { w.focus(); w.print(); };
+  };
+
+  return (
+    <Modal title={target ? `Mã QR ${target.label}` : ''} open={Boolean(target)} onCancel={onClose} destroyOnHidden
+      footer={[<Button key="close" onClick={onClose}>Đóng</Button>, <Button key="print" type="primary" disabled={!state.url} onClick={print}>In mã QR</Button>]}>
+      {state.error && (isApiPending(state.error) ? <PendingApi what="mã QR" jira="SCRUM-10" /> : <Alert type="error" showIcon title={state.error.message} />)}
+      {!state.error && !state.url && <Spin />}
+      {state.url && <img className="qr-image" src={state.url} alt={`Mã QR ${target.label}`} />}
+    </Modal>
+  );
+}
