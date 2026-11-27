@@ -102,10 +102,10 @@ export default function ApprovalRules() {
             locale={{ emptyText: pending ? 'Chưa có dữ liệu quy tắc' : 'Chưa có quy tắc nào' }}
             columns={[
               { title: 'Ưu tiên', dataIndex: 'priority', width: 80, align: 'right' },
-              { title: 'Mã', dataIndex: 'code', width: 170, render: (v) => <b>{v}</b> },
+              { title: 'Mã', dataIndex: 'code', width: 160, render: (v) => <b>{v}</b> },
               { title: 'Tên quy tắc', dataIndex: 'name' },
-              { title: 'Điều kiện', dataIndex: 'condition', width: 200, render: describe },
-              { title: 'Đơn vị xử lý', dataIndex: ['targetOrg', 'name'], width: 200 },
+              { title: 'Điều kiện', dataIndex: 'condition', width: 150, render: describe },
+              { title: 'Đơn vị xử lý', dataIndex: ['targetOrg', 'name'], width: 170 },
               { title: 'Bật', dataIndex: 'active', width: 70, render: (v, rule) => <Switch size="small" checked={v} onChange={(on) => toggle(rule, on)} aria-label={`Bật quy tắc ${rule.code}`} /> },
               { title: '', width: 70, render: (_, rule) => <Button type="link" size="small" onClick={() => open(rule)}>Sửa</Button> },
             ]}

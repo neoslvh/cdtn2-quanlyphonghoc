@@ -15,7 +15,7 @@ function BarList({ rows, label = 'Danh sách' }) {
       {rows.map((r) => (
         <li key={r.key} title={`${r.label}: ${r.text}`}>
           <span className="bar-label">{r.label}</span>
-          <span className="bar-track"><span className="bar-fill" style={{ width: `${(r.value / max) * 100}%` }} /></span>
+          <span className="bar-track"><span className="bar-fill" style={{ width: r.value ? `max(2px, ${(r.value / max) * 100}%)` : 0 }} /></span>
           <span className="bar-value">{r.text}</span>
         </li>
       ))}
