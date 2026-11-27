@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, Button, Select, Table, Tag } from 'antd';
 import { api } from '../api';
 import { fmtRange, pendingOrg } from '../components';
@@ -11,7 +11,8 @@ export default function MyRequests() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const admin = user.role === 'ADMIN';
-  const [status, setStatus] = useState();
+  const [params] = useSearchParams();
+  const [status, setStatus] = useState(params.get('status') || undefined);
   const [page, setPage] = useState(1);
   const [data, setData] = useState({ items: [], total: 0, pageSize: 10 });
   const [loading, setLoading] = useState(true);
@@ -49,7 +50,7 @@ export default function MyRequests() {
         <div className="panel">
           <h2>Danh sách yêu cầu</h2>
           <div className="form-row">
-            <Select size="large" allowClear placeholder="Mọi trạng thái" aria-label="Lọc theo trạng thái" onChange={(v) => { setPage(1); setStatus(v); }} options={Object.entries(REQUEST_STATUS).map(([value, [, label]]) => ({ value, label }))} />
+            <Select size="large" allowClear placeholder="Mọi trạng thái" aria-label="Lọc theo trạng thái" value={status} onChange={(v) => { setPage(1); setStatus(v); }} options={Object.entries(REQUEST_STATUS).map(([value, [, label]]) => ({ value, label }))} />
             {!admin && <Button type="primary" size="large" style={{ flex: '0 0 auto' }} onClick={() => navigate('/requests/new')}>Tạo yêu cầu</Button>}
           </div>
           {error && <Alert type="error" showIcon title={error} style={{ marginBottom: 12 }} />}

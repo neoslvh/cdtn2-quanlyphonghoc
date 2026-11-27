@@ -28,6 +28,8 @@ export default function AdminUsers() {
   const [filter, setFilter] = useState('');
   const [items, setItems] = useState([]);
   const [orgs, setOrgs] = useState([]);
+  const [q, setQ] = useState('');
+  const [role, setRole] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -75,6 +77,10 @@ export default function AdminUsers() {
     }
   };
 
+  // Danh sách tài khoản đã tải đủ một lần nên tìm kiếm và lọc vai trò làm ngay trên trình duyệt.
+  const keyword = q.trim().toLowerCase();
+  const shown = items.filter((u) => (!role || u.role === role) && (!keyword || `${u.fullName} ${u.email}`.toLowerCase().includes(keyword)));
+
   const columns = [
     { title: 'Họ và tên', dataIndex: 'fullName' },
     { title: 'Email', dataIndex: 'email' },
@@ -121,9 +127,11 @@ export default function AdminUsers() {
       <div className="app-content">
         {error && <Alert type="error" showIcon title={error} style={{ marginBottom: 16 }} />}
         <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }} wrap>
-          <Space>
-            <span>Lọc theo trạng thái:</span>
-            <Select
+          <Space wrap>
+            <Input.Search allowClear placeholder="Tìm theo tên hoặc email" aria-label="Tìm tài khoản" style={{ width: 260 }} onChange={(e) => setQ(e.target.value)} onSearch={setQ} />
+            <Select value={role} style={{ width: 210 }} aria-label="Lọc theo vai trò" onChange={setRole} options={[{ value: '', label: 'Mọi vai trò' }, ...roleOptions]} />
+            <span>Trạng thái:</span>
+            <Select aria-label="Lọc theo trạng thái"
               value={filter}
               style={{ width: 180 }}
               onChange={setFilter}
@@ -132,7 +140,7 @@ export default function AdminUsers() {
           </Space>
           <Button type="primary" onClick={() => setCreating(true)}>Thêm tài khoản</Button>
         </Space>
-        <Table rowKey="id" loading={loading} columns={columns} dataSource={items} pagination={{ pageSize: 20, hideOnSinglePage: true }} scroll={{ x: 1000 }} locale={{ emptyText: 'Không có tài khoản nào' }} />
+        <Table rowKey="id" loading={loading} columns={columns} dataSource={shown} pagination={{ pageSize: 20, hideOnSinglePage: true }} scroll={{ x: 1000 }} locale={{ emptyText: 'Không có tài khoản nào' }} />
       </div>
 
       <Modal title="Thêm tài khoản" open={creating} onCancel={() => setCreating(false)} onOk={() => form.submit()} okText="Tạo tài khoản" cancelText="Hủy" confirmLoading={saving} destroyOnHidden>
