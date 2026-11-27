@@ -12,7 +12,8 @@ export default defineConfig({
   reporter: [['html', { open: 'never' }], ['list']],
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://localhost:8080',
-    channel: 'chrome',
+    // Mặc định Chrome; đặt E2E_CHANNEL=msedge để chạy trên Edge (NFR-06).
+    channel: process.env.E2E_CHANNEL || 'chrome',
     locale: 'vi-VN',
     timezoneId: 'Asia/Ho_Chi_Minh',
     trace: 'retain-on-failure',
