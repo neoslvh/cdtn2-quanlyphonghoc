@@ -1,4 +1,5 @@
 // Tầng repository: đọc ghi phiếu đề xuất, thiết bị, tệp đính kèm và các bước duyệt. Không chứa quy tắc nghiệp vụ.
+const { Prisma } = require('@prisma/client');
 const { audit, missing } = require('./common');
 
 const TX = { maxWait: 10000, timeout: 30000 };
@@ -78,18 +79,18 @@ function createRequestRepo(prisma) {
 
     /**
      * BR-07: chuyển các yêu cầu PENDING đã đến giờ bắt đầu sang EXPIRED trong một giao dịch, hủy các bước còn chờ,
-     * gửi thông báo cho người đăng ký và ghi nhật ký (người thực hiện là hệ thống). Cập nhật có điều kiện status PENDING
-     * nên chạy song song hay chạy trùng với một lần duyệt cũng không xử lý một phiếu hai lần. Trả danh sách phiếu đã hết hạn.
+     * gửi thông báo cho người đăng ký và ghi nhật ký (người thực hiện là hệ thống). Một lệnh UPDATE ... RETURNING có điều kiện
+     * status PENDING nên chạy song song hay chạy trùng với một lần duyệt cũng không xử lý một phiếu hai lần, và số truy vấn
+     * không tăng theo số phiếu quá hạn. Trả danh sách phiếu đã hết hạn.
      */
     expireOverdue: (now, message) =>
       prisma.$transaction(async (tx) => {
-        const due = await tx.usageRequest.findMany({ where: { status: 'PENDING', startAt: { lte: now } }, select: { id: true, requestNo: true, requesterId: true, room: { select: { code: true } } } });
-        const done = [];
-        for (const r of due) {
-          const { count } = await tx.usageRequest.updateMany({ where: { id: r.id, status: 'PENDING' }, data: { status: 'EXPIRED' } });
-          if (count) done.push(r);
-        }
-        if (!done.length) return [];
+        const rows = await tx.$queryRaw(Prisma.sql`
+          UPDATE usage_request u SET status = 'EXPIRED' FROM room rm
+          WHERE rm.id = u.room_id AND u.status = 'PENDING' AND u.start_at <= ${now}
+          RETURNING u.id, u.request_no AS "requestNo", u.requester_id AS "requesterId", rm.code AS "roomCode"`);
+        if (!rows.length) return [];
+        const done = rows.map(({ roomCode, ...r }) => ({ ...r, room: { code: roomCode } }));
         const ids = done.map((r) => r.id);
         await tx.approvalStep.updateMany({ where: { requestId: { in: ids }, status: { in: ['PENDING', 'WAITING'] } }, data: { status: 'CANCELLED' } });
         await tx.notification.createMany({ data: done.map((r) => ({ userId: r.requesterId, requestId: r.id, title: 'Yêu cầu sử dụng phòng đã hết hạn', message: message(r) })) });

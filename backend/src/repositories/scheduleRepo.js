@@ -88,6 +88,10 @@ function createScheduleRepo(prisma) {
      */
     commitBatch: (id, { cancelReason, actorId }) =>
       prisma.$transaction(async (tx) => {
+        // Hai lần xác nhận chạy song song không thấy buổi ACTIVE chưa commit của nhau, nên xếp hàng bằng khóa advisory
+        // để bước kiểm tra trùng bên dưới luôn thấy kết quả của lần xác nhận trước.
+        // ponytail: một khóa chung cho mọi lần xác nhận vì thao tác này hiếm; khóa theo phòng nếu cần chạy song song.
+        await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(20261128)`;
         const batch = await tx.importBatch.findUnique({ where: { id } });
         const { count } = await tx.importBatch.updateMany({ where: { id, status: 'PREVIEW' }, data: { status: 'COMMITTED', committedAt: new Date() } });
         if (!count) return null;
