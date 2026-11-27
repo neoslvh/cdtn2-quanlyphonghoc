@@ -18,6 +18,8 @@ Tài liệu này bổ sung cho SRS (FR-10, FR-11, FR-14, FR-21), API Contract m�
 
 - Chuỗi duyệt sinh khi gửi phiếu: Phòng Đào tạo, thêm Ban Giám hiệu khi từ 200 người, cuối cùng Phòng Quản trị cơ sở vật chất. Tại mỗi thời điểm chỉ một bước ở trạng thái PENDING, các bước sau là WAITING.
 - Chỉ APPROVER thuộc đơn vị của bước PENDING được quyết định; đơn vị khác trả 403 `FORBIDDEN`. Phiếu không còn PENDING hoặc đã bị xử lý bởi người khác trả 409 `INVALID_STATE`.
+- BR-07 (SCRUM-31): phiếu đã tới giờ bắt đầu mà chưa duyệt xong thì không duyệt hay từ chối được nữa (409 `INVALID_STATE`) và không còn trong GET /approvals. Máy chủ chạy tác vụ mỗi phút chuyển các phiếu này sang `EXPIRED`, hủy các bước còn chờ, gửi thông báo "Yêu cầu sử dụng phòng đã hết hạn" cho người đăng ký và ghi nhật ký `REQUEST_EXPIRED`.
+- Mỗi bước trong `steps` có `decisionReason` (lý do từ chối hoặc ghi chú khi đồng ý) và `decidedAt` (thời điểm quyết định, ISO 8601); bước chưa xử lý có hai giá trị null (SCRUM-32).
 - Trước khi cấp cuối đồng ý, hệ thống kiểm tra lại trạng thái phòng, lịch học chính khóa và lượt đặt đã duyệt. Phòng không còn AVAILABLE trả 409 `ROOM_UNAVAILABLE`, trùng lịch trả 409 `ROOM_CONFLICT` kèm nguồn trùng, và phiếu giữ nguyên ở bước cuối.
 - Ràng buộc loại trừ `room_booking_no_overlap` là chốt chặn cuối: nếu hai phiếu cùng phòng, cùng giờ được duyệt đồng thời thì đúng một phiếu thành công, phiếu còn lại trả `ROOM_CONFLICT`.
 - Mỗi quyết định là một giao dịch gồm phiếu, bước duyệt, lượt đặt, thông báo cho người đăng ký và nhật ký.
@@ -28,4 +30,4 @@ Tài liệu này bổ sung cho SRS (FR-10, FR-11, FR-14, FR-21), API Contract m�
 
 `notification`: `id`, `user_id`, `request_id` (có thể rỗng, ON DELETE SET NULL), `title`, `message`, `read_at`, `created_at`. Chỉ mục theo (`user_id`, `read_at`).
 
-Các giá trị `action` đang dùng: REQUEST_CREATED, REQUEST_UPDATED, REQUEST_SUBMITTED, REQUEST_CANCELLED, REQUEST_STEP_APPROVED, REQUEST_APPROVED, REQUEST_REJECTED, REQUEST_CANCELLED_BY_SCHEDULE, ROOM_CREATED, ROOM_UPDATED, SCHEDULE_IMPORT_PREVIEWED, SCHEDULE_IMPORT_COMMITTED, SCHEDULE_IMPORT_DISCARDED, CLASS_SESSION_UPDATED, CLASS_SESSION_CANCELLED.
+Các giá trị `action` đang dùng: REQUEST_CREATED, REQUEST_UPDATED, REQUEST_SUBMITTED, REQUEST_CANCELLED, REQUEST_STEP_APPROVED, REQUEST_APPROVED, REQUEST_REJECTED, REQUEST_CANCELLED_BY_SCHEDULE, REQUEST_EXPIRED, ROOM_CREATED, ROOM_UPDATED, SCHEDULE_IMPORT_PREVIEWED, SCHEDULE_IMPORT_COMMITTED, SCHEDULE_IMPORT_DISCARDED, CLASS_SESSION_UPDATED, CLASS_SESSION_CANCELLED.

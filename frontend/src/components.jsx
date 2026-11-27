@@ -26,7 +26,12 @@ export function StepsView({ steps }) {
       orientation="vertical"
       size="small"
       current={at === -1 ? steps.length : at}
-      items={steps.map((s) => ({ title: s.organizationName, status: STEP_STATE[s.status], content: STEP_STATUS[s.status][1] }))}
+      items={steps.map((s) => ({
+        title: s.organizationName,
+        status: STEP_STATE[s.status],
+        // SCRUM-32: kèm thời điểm quyết định và lý do (bắt buộc khi từ chối, ghi chú khi đồng ý).
+        content: [STEP_STATUS[s.status][1] + (s.decidedAt ? ` lúc ${dayjs(s.decidedAt).format('HH:mm DD/MM/YYYY')}` : ''), s.decisionReason && `Lý do: ${s.decisionReason}`].filter(Boolean).join('. '),
+      }))}
     />
   );
 }

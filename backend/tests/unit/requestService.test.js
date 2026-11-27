@@ -74,8 +74,8 @@ describe('gửi phiếu, thứ tự kiểm tra theo bảng 1.7', () => {
     expect(r.status).toBe('PENDING');
     expect(r.submittedAt).toBe(NOW.toISOString());
     expect(r.steps).toEqual([
-      { order: 1, organizationName: 'Phòng Đào tạo', status: 'PENDING' },
-      { order: 2, organizationName: 'Phòng Quản trị cơ sở vật chất', status: 'WAITING' },
+      { order: 1, organizationName: 'Phòng Đào tạo', status: 'PENDING', decisionReason: null, decidedAt: null },
+      { order: 2, organizationName: 'Phòng Quản trị cơ sở vật chất', status: 'WAITING', decisionReason: null, decidedAt: null },
     ]);
   });
 

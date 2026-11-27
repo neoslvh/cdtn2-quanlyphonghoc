@@ -109,9 +109,17 @@ function fakeDb() {
       for (let i = sessions.length - 1; i >= 0; i--) if (sessions[i].batchId === bid && sessions[i].status === 'PENDING') sessions.splice(i, 1);
       return true;
     },
+    findActiveSessionsIn: async ({ roomIds, from, to, replaceSemester }) =>
+      sessions.filter((x) => x.status === 'ACTIVE' && roomIds.includes(x.roomId) && overlaps(x, from, to) && (!replaceSemester || batches.find((y) => y.id === x.batchId).semester !== replaceSemester)),
     commitBatch: async (bid, { cancelReason, actorId }) => {
       const b = batches.find((x) => x.id === bid);
       if (b.status !== 'PREVIEW') return null;
+      // Kiểm tra lại lúc xác nhận như repository thật: buổi mới không được trùng buổi ACTIVE còn lại (trừ buổi sẽ bị thay).
+      const keep = (x) => !(b.mode === 'REPLACE' && batches.find((y) => y.id === x.batchId).semester === b.semester && x.batchId !== bid);
+      for (const n of sessions.filter((x) => x.batchId === bid && x.status === 'PENDING')) {
+        const o = sessions.find((x) => x.status === 'ACTIVE' && keep(x) && x.roomId === n.roomId && overlaps(x, n.startAt, n.endAt));
+        if (o) return { clash: { courseCode: n.courseCode, classCode: n.classCode, otherCourse: o.courseCode, otherClass: o.classCode, roomCode: n.roomCode, startAt: o.startAt } };
+      }
       b.status = 'COMMITTED';
       const conflicts = conflictsOf(bid);
       let replaced = 0;
@@ -201,7 +209,7 @@ function fakeDb() {
       if (r.status !== 'DRAFT') return null;
       r.status = 'PENDING';
       r.submittedAt = now;
-      r.steps = steps.map((st) => ({ id: `step-${++seq}`, stepNo: st.stepNo, approverOrgId: st.approverOrgId, organizationName: ORGS.find((o) => o.id === st.approverOrgId).name, status: st.status }));
+      r.steps = steps.map((st) => ({ id: `step-${++seq}`, decisionReason: null, decidedAt: null, stepNo: st.stepNo, approverOrgId: st.approverOrgId, organizationName: ORGS.find((o) => o.id === st.approverOrgId).name, status: st.status }));
       if (log) audit.push({ ...log, createdAt: new Date() });
       return r;
     },
@@ -214,16 +222,26 @@ function fakeDb() {
       if (log) audit.push({ ...log, createdAt: new Date() });
       return r;
     },
-    listPendingApprovals: async ({ orgId, page, pageSize }) => {
-      const all = requests.filter((r) => r.status === 'PENDING' && r.steps.some((s) => s.status === 'PENDING' && (!orgId || s.approverOrgId === orgId))).sort((a, b) => a.submittedAt - b.submittedAt);
+    listPendingApprovals: async ({ orgId, after, page, pageSize }) => {
+      const all = requests.filter((r) => r.status === 'PENDING' && (!after || r.startAt > after) && r.steps.some((s) => s.status === 'PENDING' && (!orgId || s.approverOrgId === orgId))).sort((a, b) => a.submittedAt - b.submittedAt);
       return { items: all.slice((page - 1) * pageSize, page * pageSize), total: all.length };
+    },
+    expireOverdue: async (now, message) => {
+      const done = requests.filter((r) => r.status === 'PENDING' && r.startAt <= now);
+      for (const r of done) {
+        r.status = 'EXPIRED';
+        r.steps = r.steps.map((st) => (['PENDING', 'WAITING'].includes(st.status) ? { ...st, status: 'CANCELLED' } : st));
+        notifications.push({ id: `40000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`, userId: r.requesterId, requestId: r.id, title: 'Yêu cầu sử dụng phòng đã hết hạn', message: message(r), readAt: null, createdAt: new Date() });
+        audit.push({ userId: null, action: 'REQUEST_EXPIRED', entityType: 'usage_request', entityId: r.id });
+      }
+      return done;
     },
     approveStep: async ({ requestId, stepId, userId, reason, booking, requesterId }) => {
       const r = requests.find((x) => x.id === requestId);
       const st = r.steps.find((x) => x.id === stepId);
       if (r.status !== 'PENDING' || st.status !== 'PENDING') return 'STALE';
       if (booking && bookings.some((b) => b.roomId === booking.roomId && b.status === 'ACTIVE' && overlaps(b, booking.startAt, booking.endAt))) return 'CONFLICT';
-      Object.assign(st, { status: 'APPROVED', decisionReason: reason });
+      Object.assign(st, { status: 'APPROVED', decisionReason: reason, decidedAt: new Date() });
       if (booking) {
         r.status = 'APPROVED';
         bookings.push({ requestId, requestNo: r.requestNo, roomId: booking.roomId, startAt: booking.startAt, endAt: booking.endAt, status: 'ACTIVE' });
@@ -240,7 +258,7 @@ function fakeDb() {
       const st = r.steps.find((x) => x.id === stepId);
       if (r.status !== 'PENDING' || st.status !== 'PENDING') return 'STALE';
       r.status = 'REJECTED';
-      Object.assign(st, { status: 'REJECTED', decisionReason: reason });
+      Object.assign(st, { status: 'REJECTED', decisionReason: reason, decidedAt: new Date() });
       for (const x of r.steps) if (x.status === 'WAITING') x.status = 'CANCELLED';
       notifications.push({ id: `40000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`, userId: requesterId, requestId, title: 'Yêu cầu sử dụng phòng bị từ chối', message, readAt: null, createdAt: new Date() });
       audit.push({ userId, action: 'REQUEST_REJECTED', entityType: 'usage_request', entityId: requestId });

@@ -55,6 +55,30 @@ function createScheduleService({ repo, availability }) {
     return new Map((await repo.listPeriodSlots()).map((p) => [p.period, { start: p.startTime.split(':').map(Number), end: p.endTime.split(':').map(Number) }]));
   }
 
+  /**
+   * SCRUM-33: dòng có buổi học trùng phòng, trùng giờ với buổi ACTIVE đã có từ lần nhập trước thì báo lỗi theo dòng.
+   * Ở chế độ REPLACE bỏ qua các buổi cùng học kỳ vì chúng sẽ bị thay. Mỗi dòng báo một lần, nêu buổi trùng sớm nhất.
+   */
+  async function overlapWithActive(sessions, roomIds, replaceSemester) {
+    if (!sessions.length) return [];
+    const from = new Date(Math.min(...sessions.map((s) => s.startAt.getTime())));
+    const to = new Date(Math.max(...sessions.map((s) => s.endAt.getTime())));
+    const existing = await repo.findActiveSessionsIn({ roomIds: [...new Set(sessions.map((s) => roomIds.get(s.roomCode)))], from, to, replaceSemester });
+    const errors = [];
+    for (const s of sessions) {
+      if (errors.some((e) => e.row === s.row)) continue;
+      const hit = existing
+        .filter((x) => x.roomCode === s.roomCode && x.startAt < s.endAt && s.startAt < x.endAt)
+        .sort((a, b) => a.startAt - b.startAt)[0];
+      if (hit) {
+        const p = parts(hit.startAt);
+        const when = `${String(p.h).padStart(2, '0')}:${String(p.mi).padStart(2, '0')} ${String(p.d).padStart(2, '0')}/${String(p.m).padStart(2, '0')}/${p.y}`;
+        errors.push({ row: s.row, column: 'Mã phòng', message: `Trùng giờ với lớp ${hit.courseCode} (${hit.classCode}) đang có hiệu lực trên phòng ${s.roomCode} lúc ${when}.` });
+      }
+    }
+    return errors;
+  }
+
   async function batchOrFail(id) {
     const b = isUuid(id) ? await repo.findBatch(id) : null;
     if (!b) throw notFound();
@@ -81,6 +105,7 @@ function createScheduleService({ repo, availability }) {
       const { parsed, errors } = checkRows(rows, { semester, slots, roomCodes: new Set(roomIds.keys()) });
       const sessions = errors.length ? [] : expandSessions(parsed, slots);
       if (!errors.length) errors.push(...checkInternalOverlap(sessions));
+      if (!errors.length) errors.push(...(await overlapWithActive(sessions, roomIds, mode === 'REPLACE' ? semester : null)));
       if (errors.length) throw importInvalid(errors.sort((a, b) => a.row - b.row));
       const { batch, conflicts } = await repo.createImportBatch({
         importedBy: user.id,
@@ -116,6 +141,10 @@ function createScheduleService({ repo, availability }) {
         cancelReason: (c) => `Phòng ${c.roomCode} có lớp ${c.courseCode} (${c.classCode}) theo thời khóa biểu mới của Phòng Đào tạo.`,
       });
       if (!result) throw new ApiError(409, 'INVALID_STATE', 'Lần nhập này không còn ở trạng thái xem trước.');
+      if (result.clash) {
+        const c = result.clash;
+        throw new ApiError(409, 'ROOM_CONFLICT', `Lớp ${c.courseCode} (${c.classCode}) trùng giờ với lớp ${c.otherCourse} (${c.otherClass}) đang có hiệu lực trên phòng ${c.roomCode}. Hãy hủy bản xem trước và nhập lại.`, [{ source: 'CLASS_SCHEDULE', courseCode: c.otherCourse, classCode: c.otherClass }]);
+      }
       return {
         batchId: id,
         status: 'COMMITTED',

@@ -50,8 +50,8 @@ maybe('phiếu đề xuất trên PostgreSQL thật', () => {
     const sent = await service.submit(user, r.id);
     expect(sent.status).toBe('PENDING');
     expect(sent.steps).toEqual([
-      { order: 1, organizationName: 'Phòng Đào tạo', status: 'PENDING' },
-      { order: 2, organizationName: 'Phòng Quản trị cơ sở vật chất', status: 'WAITING' },
+      { order: 1, organizationName: 'Phòng Đào tạo', status: 'PENDING', decisionReason: null, decidedAt: null },
+      { order: 2, organizationName: 'Phòng Quản trị cơ sở vật chất', status: 'WAITING', decisionReason: null, decidedAt: null },
     ]);
   });
 
