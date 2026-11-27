@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { api, getToken, setToken } from './api';
+import { SESSION_EXPIRED, api, getToken, setToken } from './api';
 
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
@@ -15,6 +15,16 @@ export function AuthProvider({ children }) {
       .then((d) => setUser(d.user))
       .catch(() => setToken(null))
       .finally(() => setLoading(false));
+  }, []);
+
+  // API báo phiên hết hạn thì bỏ người dùng hiện tại; trang được bảo vệ tự chuyển về đăng nhập và báo lý do.
+  useEffect(() => {
+    const expire = () => setUser((u) => {
+      if (u) sessionStorage.setItem(SESSION_EXPIRED, '1');
+      return null;
+    });
+    window.addEventListener(SESSION_EXPIRED, expire);
+    return () => window.removeEventListener(SESSION_EXPIRED, expire);
   }, []);
 
   const login = useCallback(async (email, password) => {

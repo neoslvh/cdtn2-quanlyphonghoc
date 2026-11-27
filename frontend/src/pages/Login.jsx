@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { Alert, Button, Form, Input } from 'antd';
 import { useAuth, useServerConfig } from '../auth';
 import AuthLayout from './AuthLayout';
@@ -7,19 +7,23 @@ import AuthLayout from './AuthLayout';
 export default function Login() {
   const { user, login } = useAuth();
   const config = useServerConfig();
-  const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState(null);
+  const [expired] = useState(() => {
+    const v = sessionStorage.getItem('auth:expired');
+    sessionStorage.removeItem('auth:expired');
+    return Boolean(v);
+  });
   const [busy, setBusy] = useState(false);
 
-  if (user) return <Navigate to="/" replace />;
+  // Đã đăng nhập (kể cả ngay sau khi bấm Đăng nhập) thì về đúng trang đang mở dở trước khi bị đưa ra trang đăng nhập.
+  if (user) return <Navigate to={location.state?.from || '/'} replace />;
 
   const onFinish = async ({ email, password }) => {
     setBusy(true);
     setError(null);
     try {
       await login(email, password);
-      navigate(location.state?.from || '/', { replace: true });
     } catch (err) {
       // 403 là tài khoản chờ duyệt hoặc bị khóa, báo bằng mức cảnh báo thay vì lỗi.
       setError({ type: err.status === 403 ? 'warning' : 'error', text: err.message });
@@ -36,6 +40,7 @@ export default function Login() {
         {location.state?.registered && (
           <Alert type="success" showIcon style={{ marginBottom: 16 }} title="Đăng ký thành công" description="Tài khoản đang chờ quản trị viên duyệt. Bạn đăng nhập được sau khi được duyệt." />
         )}
+        {expired && !error && <Alert type="warning" showIcon style={{ marginBottom: 16 }} title="Phiên đăng nhập đã hết hạn hoặc bị thu hồi. Vui lòng đăng nhập lại." />}
         {error && <Alert type={error.type} showIcon style={{ marginBottom: 16 }} title={error.text} />}
         <Form layout="vertical" onFinish={onFinish} requiredMark={false} autoComplete="on">
           <Form.Item label="Email" name="email" rules={[{ required: true, message: 'Vui lòng nhập email' }, { type: 'email', message: 'Email không đúng định dạng' }]}>
