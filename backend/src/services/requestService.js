@@ -54,6 +54,8 @@ const toRequest = (r) => ({
   createdAt: r.createdAt.toISOString(),
   submittedAt: r.submittedAt ? r.submittedAt.toISOString() : null,
   cancelReason: r.cancelReason || null,
+  // FR-18: thời điểm check-in tại phòng (SCRUM-23).
+  checkin: r.checkin ? { checkedInAt: r.checkin.checkedInAt.toISOString(), result: r.checkin.result } : null,
 });
 
 /**
@@ -207,4 +209,4 @@ function createRequestService({ repo, availability, storage, clock = () => new D
   };
 }
 
-module.exports = { createRequestService, toRequest, approvalChain, reqCode, MAX_FILE_BYTES };
+module.exports = { createRequestService, toRequest, approvalChain, reqCode, matchesSignature, MAX_FILE_BYTES };
