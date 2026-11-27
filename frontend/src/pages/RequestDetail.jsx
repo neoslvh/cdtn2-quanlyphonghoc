@@ -5,6 +5,7 @@ import { api } from '../api';
 import { ConflictAlert, StepsView, fmtRange } from '../components';
 import { EQUIPMENT, REQUEST_STATUS } from '../constants';
 import { useAuth } from '../auth';
+import RequestUsage from './RequestUsage';
 
 // Chi tiết một yêu cầu: thông tin, tiến độ duyệt và các thao tác còn được phép theo trạng thái (FR-09, SCRUM-14, SCRUM-15).
 // Nháp được sửa, gửi, hủy. Đang duyệt chỉ hủy được. Đã duyệt, từ chối hoặc đã hủy chỉ xem.
@@ -65,7 +66,8 @@ export default function RequestDetail() {
   return (
     <>
       <section className="app-band">
-        <h1>Yêu cầu {r.code}</h1>
+        <p className="print-only">TRƯỜNG ĐẠI HỌC VĂN LANG</p>
+        <h1><span className="print-only">PHIẾU ĐỀ XUẤT SỬ DỤNG PHÒNG </span>Yêu cầu {r.code}</h1>
         <p><Tag color={color}>{label}</Tag> Phòng {r.room.code}, {fmtRange(r.startAt, r.endAt)}</p>
       </section>
       <div className="app-content">
@@ -89,8 +91,11 @@ export default function RequestDetail() {
           <h2>Tiến độ duyệt</h2>
           <StepsView steps={r.steps} />
         </div>
+        <RequestUsage r={r} owner={owner} onChange={setR} />
+        <p className="print-only">In lúc {new Date().toLocaleString('vi-VN')} từ Hệ thống quản lý phòng học và thiết bị.</p>
         <div className="form-actions">
           <Button onClick={() => navigate('/requests')}>Về danh sách</Button>
+          {r.status !== 'DRAFT' && <Button onClick={() => window.print()}>In phiếu / Lưu PDF</Button>}
           {owner && r.status === 'DRAFT' && <Button onClick={() => navigate(`/requests/${r.id}/edit`)}>Sửa</Button>}
           {owner && ['DRAFT', 'PENDING'].includes(r.status) && <Button danger onClick={() => setCancelling(true)}>Hủy yêu cầu</Button>}
           {owner && r.status === 'DRAFT' && <Button type="primary" loading={busy} onClick={submit}>Gửi đề xuất</Button>}

@@ -2,16 +2,21 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { Spin } from 'antd';
 import { useAuth } from './auth';
 import AdminUsers from './pages/AdminUsers';
+import ApprovalRules from './pages/ApprovalRules';
 import AuditLog from './pages/AuditLog';
 import Approvals from './pages/Approvals';
-import { canManageRooms, canManageSchedule } from './constants';
+import { canManageRooms, canManageSchedule, canViewFacility } from './constants';
 import ChangePassword from './pages/ChangePassword';
 import ClassSchedule from './pages/ClassSchedule';
+import Equipment from './pages/Equipment';
+import Facility from './pages/Facility';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import MyRequests from './pages/MyRequests';
+import NotFound from './pages/NotFound';
 import Notifications from './pages/Notifications';
 import Register from './pages/Register';
+import Reports from './pages/Reports';
 import RequestDetail from './pages/RequestDetail';
 import RequestForm from './pages/RequestForm';
 import RoomManage from './pages/RoomManage';
@@ -50,8 +55,12 @@ export default function App() {
           <Route path="class-schedule" element={<Protected allow={canManageSchedule}><ClassSchedule /></Protected>} />
           <Route path="admin/audit" element={<Protected roles={['ADMIN']}><AuditLog /></Protected>} />
           <Route path="admin/users" element={<Protected roles={['ADMIN']}><AdminUsers /></Protected>} />
+          <Route path="admin/reports" element={<Protected roles={['ADMIN']}><Reports /></Protected>} />
+          <Route path="admin/approval-rules" element={<Protected roles={['ADMIN']}><ApprovalRules /></Protected>} />
+          <Route path="equipment" element={<Protected allow={canManageRooms}><Equipment /></Protected>} />
+          <Route path="facility" element={<Protected allow={canViewFacility}><Facility /></Protected>} />
+          <Route path="*" element={<NotFound />} />
         </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

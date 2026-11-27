@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import { ACCOUNTS, dmy, loginAs, pickRange, runTag, stamp, workdaysAhead } from './support';
+import { APIRequestContext, expect, Page, test } from '@playwright/test';
+import { ACCOUNTS, apiToken, dmy, loginAs, pickRange, runTag, stamp, workdaysAhead } from './support';
 
 // FR-23, BR-10, BR-11, BR-12: Phòng Đào tạo nhập thời khóa biểu; lớp học chiếm phòng và chặn yêu cầu của người đăng ký.
 const HEADER = 'Học kỳ,Mã môn,Tên môn,Lớp,Thứ,Tiết bắt đầu,Số tiết,Mã phòng,Từ ngày,Đến ngày';
@@ -11,7 +11,32 @@ function mondayAhead(): Date {
   return d;
 }
 
+// Phòng C.03.02 còn các buổi đã hủy của những lần chạy trước, nên lật trang của bảng buổi học đến khi thấy lớp cần tìm.
+async function showRow(page: Page, text: string) {
+  const table = page.locator('.ant-table-tbody').last();
+  const next = page.locator('.ant-pagination-next').last();
+  await expect(page.locator('.ant-spin-spinning')).toHaveCount(0);
+  for (let i = 0; i < 30 && !(await table.innerText()).includes(text); i++) {
+    if (!(await next.count()) || (await next.getAttribute('aria-disabled')) === 'true') break;
+    await next.click();
+    await expect(page.locator('.ant-spin-spinning')).toHaveCount(0);
+  }
+}
+
+// Hủy các buổi học thử còn hiệu lực ở phòng C.03.02 (mã môn bắt đầu bằng E2E) để mỗi lần chạy không vướng dữ liệu của lần trước.
+async function cleanTestSessions(request: APIRequestContext) {
+  const headers = { Authorization: `Bearer ${await apiToken(request, ACCOUNTS.approver.email)}` };
+  for (;;) {
+    const res = await request.get('/api/class-schedule?roomCode=C.03.02&status=ACTIVE&pageSize=100', { headers });
+    const left = ((await res.json()).items as { id: string; courseCode: string }[]).filter((x) => x.courseCode.startsWith('E2E'));
+    if (!left.length) return;
+    for (const x of left) await request.post(`/api/class-schedule/${x.id}/cancel`, { headers });
+  }
+}
+
 test.describe.serial('E2E-06 nhập thời khóa biểu (PB-23)', () => {
+  test.beforeAll(async ({ request }) => cleanTestSessions(request));
+  test.afterAll(async ({ request }) => cleanTestSessions(request));
   const tag = runTag();
   const semester = `HK-E2E-${tag}`;
   const klass = `K-E2E-${tag}`;
@@ -61,6 +86,7 @@ test.describe.serial('E2E-06 nhập thời khóa biểu (PB-23)', () => {
     // Tra cứu theo phòng C.03.02 thấy lớp vừa nhập.
     await page.locator('.ant-select').filter({ hasText: 'Tất cả phòng' }).click();
     await page.locator('.ant-select-item-option').filter({ hasText: 'C.03.02' }).click();
+    await showRow(page, klass);
     await expect(page.locator('.ant-table-tbody').last()).toContainText(klass);
   });
 
@@ -90,12 +116,17 @@ test.describe.serial('E2E-06 nhập thời khóa biểu (PB-23)', () => {
     await loginAs(page, request, ACCOUNTS.approver.email, '/class-schedule');
     await page.locator('.ant-select').filter({ hasText: 'Tất cả phòng' }).click();
     await page.locator('.ant-select-item-option').filter({ hasText: 'C.03.02' }).click();
+    await showRow(page, klass);
     const row = page.locator('.ant-table-tbody tr.ant-table-row').filter({ hasText: klass }).first();
     await expect(row).toBeVisible();
     await row.getByRole('button', { name: 'Hủy buổi' }).click();
     await page.getByRole('button', { name: 'Hủy buổi' }).last().click();
     await expect(page.getByText('Đã hủy buổi học')).toBeVisible();
-    await expect(row).toContainText('Đã hủy');
+    // Bảng tải lại sau khi hủy (có thể về trang 1), nên lật lại tới lớp vừa hủy và thử lại đến khi bảng ổn định.
+    await expect(async () => {
+      await showRow(page, klass);
+      await expect(row).toContainText('Đã hủy', { timeout: 1000 });
+    }).toPass({ timeout: 20000 });
   });
 
   test('người đăng ký không vào được trang lịch học chính khóa và API trả 403', async ({ page, request }) => {

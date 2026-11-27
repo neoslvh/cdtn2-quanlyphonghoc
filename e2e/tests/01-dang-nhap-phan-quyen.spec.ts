@@ -33,10 +33,10 @@ test.describe('E2E-01 đăng nhập và đăng xuất', () => {
 
 test.describe('E2E-02 phân quyền theo vai trò (PB-02)', () => {
   const cases = [
-    { who: ACCOUNTS.requester, menu: ['Trang chủ', 'Tra cứu phòng', 'Tạo yêu cầu', 'Yêu cầu của tôi'], blocked: ['/rooms', '/class-schedule', '/admin/users', '/admin/audit', '/approvals'], allowed: ['/requests/new', '/requests', '/rooms/search'] },
-    { who: ACCOUNTS.approver, menu: ['Trang chủ', 'Tra cứu phòng', 'Duyệt yêu cầu', 'Lịch học chính khóa'], blocked: ['/rooms', '/requests/new', '/requests', '/admin/users', '/admin/audit'], allowed: ['/approvals', '/class-schedule', '/rooms/search'] },
-    { who: ACCOUNTS.facility, menu: ['Trang chủ', 'Tra cứu phòng', 'Quản lý phòng'], blocked: ['/class-schedule', '/requests/new', '/requests', '/approvals', '/admin/users'], allowed: ['/rooms', '/rooms/search'] },
-    { who: ACCOUNTS.admin, menu: ['Trang chủ', 'Tra cứu phòng', 'Tất cả yêu cầu', 'Quản lý phòng', 'Lịch học chính khóa', 'Tài khoản', 'Nhật ký'], blocked: ['/requests/new', '/approvals'], allowed: ['/requests', '/rooms', '/class-schedule', '/admin/users', '/admin/audit'] },
+    { who: ACCOUNTS.requester, menu: ['Trang chủ', 'Tra cứu phòng', 'Tạo yêu cầu', 'Yêu cầu của tôi'], blocked: ['/rooms', '/class-schedule', '/admin/users', '/admin/audit', '/admin/reports', '/approvals', '/equipment', '/facility'], allowed: ['/requests/new', '/requests', '/rooms/search', '/notifications'] },
+    { who: ACCOUNTS.approver, menu: ['Trang chủ', 'Tra cứu phòng', 'Duyệt yêu cầu', 'Lịch học chính khóa'], blocked: ['/rooms', '/requests/new', '/requests', '/admin/users', '/admin/audit', '/equipment', '/facility'], allowed: ['/approvals', '/class-schedule', '/rooms/search'] },
+    { who: ACCOUNTS.facility, menu: ['Trang chủ', 'Tra cứu phòng', 'Quản lý phòng', 'Thiết bị', 'Bàn giao và báo hỏng'], blocked: ['/class-schedule', '/requests/new', '/requests', '/approvals', '/admin/users', '/admin/approval-rules'], allowed: ['/rooms', '/rooms/search', '/equipment', '/facility'] },
+    { who: ACCOUNTS.admin, menu: ['Trang chủ', 'Tra cứu phòng', 'Tất cả yêu cầu', 'Quản lý phòng', 'Thiết bị', 'Bàn giao và báo hỏng', 'Lịch học chính khóa', 'Tài khoản', 'Nhật ký', 'Báo cáo', 'Quy tắc duyệt'], blocked: ['/requests/new', '/approvals'], allowed: ['/requests', '/rooms', '/equipment', '/facility', '/class-schedule', '/admin/users', '/admin/audit', '/admin/reports', '/admin/approval-rules'] },
   ];
 
   for (const c of cases) {

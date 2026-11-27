@@ -60,9 +60,8 @@ test.describe('E2E-04 tạo và gửi yêu cầu (PB-07)', () => {
     await expect(page.locator('.ant-select-content').filter({ hasText: 'D.02.01' })).toBeVisible();
     await expect(page.locator('.ant-picker-range input').first()).toHaveValue(stamp(d, 14));
     await page.getByPlaceholder(/Sinh hoạt chuyên đề/).fill('Sinh hoạt chuyên đề kiểm thử tự động');
-    await page.getByRole('button', { name: 'Thêm thiết bị' }).click();
-    await page.locator('.ant-select').filter({ hasText: 'Loại thiết bị' }).click();
-    await page.locator('.ant-select-item-option').filter({ hasText: 'Micro' }).click();
+    // Chọn phòng thì form tự điền sẵn các loại thiết bị phòng đang có, người dùng chỉ chỉnh số lượng.
+    await expect(page.locator('.ant-select-content').filter({ hasText: /Micro \(có \d+\)/ })).toBeVisible();
     await page.getByRole('button', { name: 'Gửi đề xuất' }).click();
     await expect(page.getByText(/Đã gửi yêu cầu REQ-\d+/)).toBeVisible();
     await expect(page.getByText('Đang duyệt')).toBeVisible();

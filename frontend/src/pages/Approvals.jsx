@@ -4,6 +4,41 @@ import { api } from '../api';
 import { ConflictAlert, StepsView, fmtRange, pendingOrg } from '../components';
 import { EQUIPMENT } from '../constants';
 
+// Kiểm tra trước khi xác nhận (WF-07): phòng còn trống trong khung giờ, sức chứa, quy mô từ 200 người.
+// Chỉ để người duyệt tham khảo, máy chủ vẫn kiểm tra lại khi duyệt bước cuối.
+function PreCheck({ r }) {
+  const [free, setFree] = useState(null);
+  useEffect(() => {
+    let ignore = false;
+    const p = new URLSearchParams({ from: r.startAt, to: r.endAt, capacity: r.participantCount, pageSize: 100 });
+    api(`/rooms/available?${p}`)
+      .then((d) => { if (!ignore) setFree(d.items.some((x) => x.id === r.room.id)); })
+      .catch((e) => { if (!ignore) setFree(e.message); });
+    return () => { ignore = true; };
+  }, [r]);
+  const big = r.participantCount >= 200;
+  return (
+    <ul className="precheck" aria-label="Kiểm tra trước khi xác nhận">
+      <li>
+        {free === null && <span>Đang kiểm tra lịch phòng...</span>}
+        {free === true && <><span className="ok">Đạt</span> Phòng {r.room.code} còn trống trong khung giờ này.</>}
+        {free === false && <><span className="warn">Lưu ý</span> Phòng {r.room.code} đang có lịch khác hoặc không khả dụng trong khung giờ này.</>}
+        {typeof free === 'string' && <><span className="warn">Lưu ý</span> Chưa kiểm tra được lịch phòng: {free}</>}
+      </li>
+      <li>
+        {r.participantCount <= r.room.capacity
+          ? <><span className="ok">Đạt</span> {r.participantCount} người, phòng có {r.room.capacity} chỗ.</>
+          : <><span className="warn">Lưu ý</span> {r.participantCount} người vượt sức chứa {r.room.capacity} chỗ.</>}
+      </li>
+      <li>
+        {big
+          ? <><span className="warn">Lưu ý</span> Từ 200 người: cần phê duyệt của Ban Giám hiệu, có {r.attachments.length} tệp đính kèm.</>
+          : <><span className="ok">Đạt</span> Quy mô dưới 200 người.</>}
+      </li>
+    </ul>
+  );
+}
+
 // WF-05: duyệt yêu cầu (FR-10, FR-11, SCRUM-18). Chỉ hiện các phiếu đang chờ đơn vị của người duyệt.
 // Từ chối bắt buộc có lý do. Ở bước cuối máy chủ kiểm tra lại phòng, lịch học và lượt đặt, trùng thì báo ROOM_CONFLICT.
 export default function Approvals() {
@@ -90,6 +125,7 @@ export default function Approvals() {
           <>
             {actionError && (actionError.code === 'ROOM_CONFLICT' ? <ConflictAlert error={actionError} /> : <Alert type="error" showIcon title={actionError.message} style={{ marginBottom: 16 }} />)}
             <p><Tag color="gold">Đang chờ {pendingOrg(active.steps)}</Tag>{isLast(active) && <Tag>Bước cuối</Tag>}</p>
+            <PreCheck r={active} />
             <Descriptions column={1} size="small" bordered>
               <Descriptions.Item label="Người đề xuất">{active.requesterName}</Descriptions.Item>
               <Descriptions.Item label="Đơn vị đăng ký">{active.organizationName}</Descriptions.Item>
