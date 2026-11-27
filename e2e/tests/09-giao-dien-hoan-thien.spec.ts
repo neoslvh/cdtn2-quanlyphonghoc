@@ -1,5 +1,5 @@
 import { APIRequestContext, expect, test } from '@playwright/test';
-import { ACCOUNTS, apiToken, loginAs, runTag, workdaysAhead } from './support';
+import { ACCOUNTS, apiToken, approveAll, createApprover, createRequest, loginAs, runTag, workdaysAhead } from './support';
 
 // Hoàn thiện giao diện trên hệ thống thật: Tổng quan, trang 404, tìm tài khoản, kiểm tra trước khi duyệt, in phiếu,
 // menu trên điện thoại, và các trang đã có giao diện nhưng máy chủ chưa có API phải báo rõ thay vì lỗi.
@@ -70,14 +70,20 @@ test.describe('E2E-11 hoàn thiện giao diện (Plan 2)', () => {
     await expect(check).toContainText('Quy mô dưới 200 người.');
   });
 
-  test('phiếu đã gửi có nút In phiếu, bấm thì mở hộp thoại in của trình duyệt', async ({ page, request }) => {
-    const r = await submitted(request, `In phiếu ${runTag()}`, 72);
-    await loginAs(page, request, ACCOUNTS.requester.email, `/requests/${r.id}`);
+  test('TC-FR15-01 phiếu đang duyệt chưa in được, phiếu đã duyệt có nút In phiếu mở hộp thoại in', async ({ page, request }) => {
+    const pending = await submitted(request, `Chưa in ${runTag()}`, 72);
+    await loginAs(page, request, ACCOUNTS.requester.email, `/requests/${pending.id}`);
+    await expect(page.getByRole('heading', { name: `Yêu cầu ${pending.code}` })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'In phiếu / Lưu PDF' })).toHaveCount(0);
+
+    const facility = await createApprover(request, 'Phòng Quản trị cơ sở vật chất');
+    const done = await createRequest(request, { purpose: `In phiếu ${runTag()}`, daysAhead: 150 + Math.floor(Math.random() * 1200), hour: 7 + Math.floor(Math.random() * 12), room: 'A.10.02' });
+    await approveAll(request, done.id, facility);
+    await page.goto(`/requests/${done.id}`);
     await page.evaluate(() => { (window as unknown as { printed: number }).printed = 0; window.print = () => { (window as unknown as { printed: number }).printed += 1; }; });
     await page.getByRole('button', { name: 'In phiếu / Lưu PDF' }).click();
     expect(await page.evaluate(() => (window as unknown as { printed: number }).printed)).toBe(1);
   });
-
   test('trên điện thoại menu cuộn ngang, trang không bị tràn chiều ngang', async ({ page, request }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await loginAs(page, request, ACCOUNTS.admin.email, '/');

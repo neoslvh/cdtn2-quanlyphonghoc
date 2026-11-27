@@ -49,3 +49,48 @@ export async function pickRange(page: Page, from: string, to: string) {
 
 /** Mã duy nhất cho mỗi lần chạy, để dữ liệu tạo ra không đụng nhau giữa các lần chạy. */
 export const runTag = () => Date.now().toString(36).toUpperCase().slice(-5);
+
+const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
+
+/** Tạo (và tùy chọn gửi) một phiếu của người đăng ký mẫu qua API. Giờ tính theo giờ máy, ngày cách hôm nay daysAhead ngày làm việc. */
+export async function createRequest(
+  request: APIRequestContext,
+  { purpose, daysAhead, hour, hours = 1, room = 'D.02.01', participantCount = 30, submit = true }: { purpose: string; daysAhead: number; hour: number; hours?: number; room?: string; participantCount?: number; submit?: boolean },
+) {
+  const headers = bearer(await apiToken(request, ACCOUNTS.requester.email));
+  const orgs = (await (await request.get('/api/organizations', { headers })).json()).items;
+  const rooms = (await (await request.get('/api/rooms', { headers })).json()).items;
+  const d = workdaysAhead(daysAhead);
+  const at = (h: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), h).toISOString();
+  const res = await request.post('/api/requests', {
+    headers,
+    data: { organizationId: orgs.find((o: { name: string }) => o.name === 'Khoa Công nghệ thông tin').id, roomId: rooms.find((r: { code: string }) => r.code === room).id, purpose, startAt: at(hour), endAt: at(hour + hours), participantCount },
+  });
+  if (res.status() !== 201) throw new Error(`Tạo phiếu thất bại: ${res.status()} ${await res.text()}`);
+  const r = (await res.json()).request as { id: string; code: string; steps: { organizationName: string; status: string }[] };
+  if (!submit) return r;
+  const sent = await request.post(`/api/requests/${r.id}/submit`, { headers });
+  if (sent.status() !== 200) throw new Error(`Gửi phiếu thất bại: ${sent.status()} ${await sent.text()}`);
+  return { ...r, ...(await sent.json()).request } as typeof r;
+}
+
+/** Tạo tài khoản người duyệt của một đơn vị bằng API quản trị, đặt mật khẩu theo PASSWORD. Trả về email. */
+export async function createApprover(request: APIRequestContext, orgName: string) {
+  const admin = bearer(await apiToken(request, ACCOUNTS.admin.email));
+  const orgs = (await (await request.get('/api/organizations?scope=all', { headers: admin })).json()).items;
+  const email = `duyet.${runTag()}${Math.floor(Math.random() * 1000)}@qlphong.local`;
+  const res = await request.post('/api/users', { headers: admin, data: { fullName: `Người duyệt ${orgName}`, email, organizationId: orgs.find((o: { name: string }) => o.name === orgName).id, role: 'APPROVER' } });
+  if (res.status() !== 201) throw new Error(`Tạo người duyệt thất bại: ${res.status()}`);
+  const temp = (await res.json()).temporaryPassword;
+  const first = (await (await request.post('/api/auth/login', { data: { email, password: temp } })).json()).token;
+  await request.post('/api/auth/change-password', { headers: bearer(first), data: { currentPassword: temp, newPassword: PASSWORD } });
+  return email;
+}
+
+/** Duyệt hết các bước của một phiếu qua API: Phòng Đào tạo bằng tài khoản mẫu, bước cuối bằng người duyệt cơ sở vật chất. */
+export async function approveAll(request: APIRequestContext, id: string, facilityEmail: string) {
+  for (const email of [ACCOUNTS.approver.email, facilityEmail]) {
+    const res = await request.post(`/api/requests/${id}/approve`, { headers: bearer(await apiToken(request, email)), data: {} });
+    if (res.status() !== 200) throw new Error(`Duyệt thất bại: ${res.status()} ${await res.text()}`);
+  }
+}
