@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 import { CAMPUSES } from '../constants';
 import { ApiError } from '../errors';
+import { facilityRoutes } from './facility';
 import { classSessions, expandSessions, importBatches, nextId, notifications, periodSlots, requests, rooms, SEMESTER } from './db';
 
 // Máy chủ giả cho các API chưa có ở backend: phòng, yêu cầu, lịch học chính khóa. Mã lỗi và thứ tự kiểm tra theo API Contract v1.0.
@@ -405,6 +406,7 @@ const routes = [
     s.status = 'CANCELLED';
     return { session: s };
   }),
+  ...facilityRoutes(route),
 ];
 
 const split = (path) => {
@@ -426,7 +428,8 @@ export async function mockCall(method, path, body) {
   const { r, m, q } = match(method, path);
   await new Promise((res) => setTimeout(res, 250));
   const out = await r.handler(m, q, body);
-  return out === null ? null : clone(out);
+  if (out === null || out instanceof Blob) return out;
+  return clone(out);
 }
 
 export { SEMESTER };
