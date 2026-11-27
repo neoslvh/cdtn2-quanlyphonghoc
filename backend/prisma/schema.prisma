@@ -40,6 +40,8 @@ model User {
   imports            ImportBatch[]
   auditLogs          AuditLog[]
   notifications      Notification[]
+  checkins           Checkin[]
+  incidents          IncidentReport[]
 
   @@map("user")
 }
@@ -68,6 +70,7 @@ model Room {
   qrToken    String          @unique @default(uuid()) @map("qr_token") @db.VarChar(255)
   equipment  Equipment[]
   requests   UsageRequest[]
+  checkins   Checkin[]
   bookings   RoomBooking[]
   sessions   ClassSchedule[]
 
@@ -76,14 +79,15 @@ model Room {
 
 // Thiết bị trong phòng. status: GOOD, BROKEN, MAINTENANCE. Sprint 2 chỉ đọc để tra cứu phòng theo thiết bị.
 model Equipment {
-  id            String  @id @default(uuid()) @db.Uuid
-  roomId        String? @map("room_id") @db.Uuid
-  room          Room?   @relation(fields: [roomId], references: [id])
-  assetCode     String  @unique @map("asset_code") @db.VarChar(50)
-  name          String  @db.VarChar(150)
-  equipmentType String  @map("equipment_type") @db.VarChar(50)
-  status        String  @db.VarChar(20)
-  qrToken       String  @unique @default(uuid()) @map("qr_token") @db.VarChar(255)
+  id            String           @id @default(uuid()) @db.Uuid
+  roomId        String?          @map("room_id") @db.Uuid
+  room          Room?            @relation(fields: [roomId], references: [id])
+  assetCode     String           @unique @map("asset_code") @db.VarChar(50)
+  name          String           @db.VarChar(150)
+  equipmentType String           @map("equipment_type") @db.VarChar(50)
+  status        String           @db.VarChar(20)
+  qrToken       String           @unique @default(uuid()) @map("qr_token") @db.VarChar(255)
+  incidents     IncidentReport[]
 
   @@map("equipment")
 }
@@ -157,6 +161,8 @@ model UsageRequest {
   steps            ApprovalStep[]
   booking          RoomBooking?
   notifications    Notification[]
+  checkin          Checkin?
+  incidents        IncidentReport[]
 
   @@index([status, startAt])
   @@map("usage_request")
@@ -252,4 +258,38 @@ model Notification {
 
   @@index([userId, readAt])
   @@map("notification")
+}
+
+// FR-18: check-in bằng QR tại phòng (SCRUM-23). Mỗi yêu cầu check-in một lần.
+model Checkin {
+  id          String       @id @default(uuid()) @db.Uuid
+  requestId   String       @unique @map("request_id") @db.Uuid
+  request     UsageRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  userId      String       @map("user_id") @db.Uuid
+  user        User         @relation(fields: [userId], references: [id])
+  roomId      String       @map("room_id") @db.Uuid
+  room        Room         @relation(fields: [roomId], references: [id])
+  checkedInAt DateTime     @map("checked_in_at") @db.Timestamptz
+  result      String       @db.VarChar(20)
+
+  @@map("checkin")
+}
+
+// FR-19: báo hỏng thiết bị trong lúc dùng phòng (SCRUM-24). status: OPEN, IN_PROGRESS, RESOLVED.
+model IncidentReport {
+  id          String       @id @default(uuid()) @db.Uuid
+  requestId   String       @map("request_id") @db.Uuid
+  request     UsageRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  equipmentId String       @map("equipment_id") @db.Uuid
+  equipment   Equipment    @relation(fields: [equipmentId], references: [id])
+  reportedBy  String       @map("reported_by") @db.Uuid
+  reporter    User         @relation(fields: [reportedBy], references: [id])
+  description String
+  imagePath   String?      @map("image_path") @db.VarChar(500)
+  imageName   String?      @map("image_name") @db.VarChar(255)
+  status      String       @db.VarChar(20)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([status, createdAt])
+  @@map("incident_report")
 }
