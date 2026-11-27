@@ -104,7 +104,14 @@ export async function approveAll(request: APIRequestContext, id: string, facilit
 /** Hủy các phiếu còn nháp hoặc đang duyệt và khóa các tài khoản thử đã tạo. Phiếu đã duyệt giữ lại vì không hủy được qua API. */
 export async function cleanupCreated(request: APIRequestContext, extraUsers: string[] = []) {
   const requester = bearer(await apiToken(request, ACCOUNTS.requester.email));
-  for (const id of created.requests.splice(0)) await request.post(`/api/requests/${id}/cancel`, { headers: requester, data: { reason: 'Dọn dữ liệu kiểm thử' } });
+  for (const id of created.requests.splice(0)) {
+    const res = await request.post(`/api/requests/${id}/cancel`, { headers: requester, data: { reason: 'Dọn dữ liệu kiểm thử' } });
+    // 409 là phiếu đã duyệt hoặc đã hủy, không hủy được nữa nên bỏ qua.
+    if (!res.ok() && res.status() !== 409) console.warn(`Không dọn được phiếu ${id}: ${res.status()}`);
+  }
   const admin = bearer(await apiToken(request, ACCOUNTS.admin.email));
-  for (const id of [...created.users.splice(0), ...extraUsers]) await request.patch(`/api/users/${id}`, { headers: admin, data: { status: 'LOCKED' } });
+  for (const id of [...created.users.splice(0), ...extraUsers]) {
+    const res = await request.patch(`/api/users/${id}`, { headers: admin, data: { status: 'LOCKED' } });
+    if (!res.ok()) console.warn(`Không khóa được tài khoản thử ${id}: ${res.status()}`);
+  }
 }

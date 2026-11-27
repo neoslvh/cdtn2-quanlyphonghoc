@@ -117,7 +117,7 @@ npm install
 npx playwright test
 ```
 
-Đổi địa chỉ hệ thống bằng biến `E2E_BASE_URL` (mặc định http://localhost:8080). Báo cáo xem bằng `npm run report`. CI chạy unit, API, tích hợp PostgreSQL, build và test giao diện, kiểm thử script Jira; bộ Playwright chạy tay vì cần dựng cả hệ thống.
+Đổi địa chỉ hệ thống bằng biến `E2E_BASE_URL` (mặc định http://localhost:8080). Đặt `E2E_CHANNEL=msedge` để chạy trên Edge, `E2E_PERF_LIMIT_MS` để nới ngưỡng thời gian của ca hiệu năng TC-NFR03-01 (mặc định 3000) khi chạy trên máy chậm. Bốn ca cho các trang chờ API chạy trên dữ liệu giả: dựng giao diện với `VITE_API_MOCK=true` rồi chạy với `E2E_MOCK=1`. Báo cáo xem bằng `npm run report`. CI chạy unit, API, tích hợp PostgreSQL, build và test giao diện, kiểm thử script Jira; bộ Playwright chạy tay vì cần dựng cả hệ thống.
 
 ## 5. Quy trình làm việc nhóm
 
