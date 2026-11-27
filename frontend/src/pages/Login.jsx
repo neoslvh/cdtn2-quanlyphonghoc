@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation } from 'react-router-dom';
 import { Alert, Button, Form, Input } from 'antd';
 import { SESSION_EXPIRED } from '../api';
 import { useAuth, useServerConfig } from '../auth';
+import { safeRedirect } from '../redirect';
 import AuthLayout from './AuthLayout';
 
 export default function Login() {
@@ -18,9 +19,8 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
 
   // Đã đăng nhập (kể cả ngay sau khi bấm Đăng nhập) thì về đúng trang đang mở dở trước khi bị đưa ra trang đăng nhập.
-  // Chỉ nhận đường dẫn nội bộ (một dấu / ở đầu), để không chuyển hướng ra trang ngoài.
-  const from = location.state?.from;
-  if (user) return <Navigate to={typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') ? from : '/'} replace />;
+  // Về đúng trang đang mở dở trước khi bị đưa ra trang đăng nhập, chỉ nhận đường dẫn nội bộ.
+  if (user) return <Navigate to={safeRedirect(location.state?.from)} replace />;
 
   const onFinish = async ({ email, password }) => {
     setBusy(true);
