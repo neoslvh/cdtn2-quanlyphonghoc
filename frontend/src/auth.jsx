@@ -19,10 +19,11 @@ export function AuthProvider({ children }) {
 
   // API báo phiên hết hạn thì bỏ người dùng hiện tại; trang được bảo vệ tự chuyển về đăng nhập và báo lý do.
   useEffect(() => {
-    const expire = () => setUser((u) => {
-      if (u) sessionStorage.setItem(SESSION_EXPIRED, '1');
-      return null;
-    });
+    // Sự kiện chỉ phát khi đang có token, nên ghi cờ ngay ở đây rồi mới bỏ người dùng (hàm cập nhật state giữ thuần túy).
+    const expire = () => {
+      sessionStorage.setItem(SESSION_EXPIRED, '1');
+      setUser(null);
+    };
     window.addEventListener(SESSION_EXPIRED, expire);
     return () => window.removeEventListener(SESSION_EXPIRED, expire);
   }, []);

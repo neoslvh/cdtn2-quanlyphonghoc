@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { Alert, Button, Form, Input } from 'antd';
+import { SESSION_EXPIRED } from '../api';
 import { useAuth, useServerConfig } from '../auth';
 import AuthLayout from './AuthLayout';
 
@@ -10,8 +11,8 @@ export default function Login() {
   const location = useLocation();
   const [error, setError] = useState(null);
   const [expired] = useState(() => {
-    const v = sessionStorage.getItem('auth:expired');
-    sessionStorage.removeItem('auth:expired');
+    const v = sessionStorage.getItem(SESSION_EXPIRED);
+    sessionStorage.removeItem(SESSION_EXPIRED);
     return Boolean(v);
   });
   const [busy, setBusy] = useState(false);

@@ -28,7 +28,7 @@ function Protected({ roles, allow, children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
   if (loading) return <Spin fullscreen />;
-  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   // Mật khẩu tạm hoặc vừa được đặt lại: chỉ được vào trang đổi mật khẩu.
   if (user.mustChangePassword && location.pathname !== '/change-password') return <Navigate to="/change-password" replace />;
   if ((roles && !roles.includes(user.role)) || (allow && !allow(user))) return <Navigate to="/" replace />;
