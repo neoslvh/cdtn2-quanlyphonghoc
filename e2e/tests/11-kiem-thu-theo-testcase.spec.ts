@@ -79,9 +79,15 @@ test.describe('E2E-14 kiểm thử theo test case', () => {
 
     await loginAs(page, request, ACCOUNTS.admin.email, '/admin/audit');
     const rows = page.locator('.ant-table-tbody tr.ant-table-row');
+    // Đợi bảng chỉ còn dòng của đúng đối tượng (cột Đối tượng hiện 8 ký tự đầu của mã) rồi mới kiểm tra.
     const search = async (id: string) => {
       await page.getByPlaceholder('Mã đối tượng (UUID)').fill(id);
       await page.getByPlaceholder('Mã đối tượng (UUID)').press('Enter');
+      await expect(async () => {
+        const texts = await rows.allInnerTexts();
+        expect(texts.length).toBeGreaterThan(0);
+        for (const t of texts) expect(t).toContain(id.slice(0, 8));
+      }).toPass({ timeout: 10000 });
     };
     await search(draft.id);
     await expect(rows.filter({ hasText: 'Sửa yêu cầu' })).toContainText('Người đăng ký mẫu');
@@ -124,5 +130,38 @@ test.describe('E2E-14 kiểm thử theo test case', () => {
       expect(overflow, `${path} tràn ngang ${overflow}px`).toBeLessThanOrEqual(0);
       await expect(page.getByRole('button', { name: 'Đăng xuất' })).toBeInViewport();
     }
+  });
+
+  test('TC-FR01-08 phiên hết hạn giữa chừng thì về trang đăng nhập kèm lý do, đăng nhập lại quay về trang đang dùng', async ({ page, request }) => {
+    await loginAs(page, request, ACCOUNTS.requester.email, '/');
+    await expect(page.getByRole('heading', { name: /Xin chào/ })).toBeVisible();
+    await page.evaluate(() => localStorage.setItem('qlphong.token', 'token-da-het-han'));
+    await page.locator('.app-top nav').getByRole('link', { name: 'Yêu cầu của tôi' }).click();
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.getByText('Phiên đăng nhập đã hết hạn hoặc bị thu hồi. Vui lòng đăng nhập lại.')).toBeVisible();
+    await page.getByLabel('Email').fill(ACCOUNTS.requester.email);
+    await page.getByLabel('Mật khẩu').fill(PASSWORD);
+    await page.getByRole('button', { name: 'Đăng nhập' }).click();
+    await expect(page).toHaveURL(/\/requests$/);
+  });
+
+  test('TC-FR07-09 đính kèm tệp lỗi rồi lưu lại không tạo phiếu nháp trùng', async ({ page, request }) => {
+    const tag = `Không trùng ${runTag()}`;
+    await loginAs(page, request, ACCOUNTS.requester.email, '/requests/new');
+    const d = workdaysAhead(farDay());
+    await pickRange(page, stamp(d, 8), stamp(d, 10));
+    await page.getByRole('spinbutton').first().fill('20');
+    await page.getByPlaceholder(/Sinh hoạt chuyên đề/).fill(tag);
+    await page.locator('.ant-select').filter({ hasText: 'Chọn phòng' }).click();
+    await page.locator('.ant-select-item-option').filter({ hasText: 'B.05.04' }).click();
+    await page.locator('input[type=file]').setInputFiles({ name: 'ke-hoach.exe', mimeType: 'application/octet-stream', buffer: Buffer.from('MZ') });
+    await page.getByRole('button', { name: 'Lưu nháp' }).click();
+    await expect(page.getByText('Chỉ nhận tệp PDF, Word hoặc ảnh.')).toBeVisible();
+    await page.getByRole('button', { name: 'Lưu nháp' }).click();
+    await expect(page.getByText('Chỉ nhận tệp PDF, Word hoặc ảnh.')).toBeVisible();
+    const headers = bearer(await apiToken(request, ACCOUNTS.requester.email));
+    const drafts = (await (await request.get('/api/requests?status=DRAFT&pageSize=100', { headers })).json()).items.filter((r: { purpose: string }) => r.purpose === tag);
+    expect(drafts).toHaveLength(1);
+    await request.post(`/api/requests/${drafts[0].id}/cancel`, { headers, data: { reason: 'Dọn dữ liệu kiểm thử' } });
   });
 });
