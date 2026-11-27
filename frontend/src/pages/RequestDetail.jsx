@@ -95,7 +95,8 @@ export default function RequestDetail() {
         <p className="print-only">In lúc {new Date().toLocaleString('vi-VN')} từ Hệ thống quản lý phòng học và thiết bị.</p>
         <div className="form-actions">
           <Button onClick={() => navigate('/requests')}>Về danh sách</Button>
-          {r.status !== 'DRAFT' && <Button onClick={() => window.print()}>In phiếu / Lưu PDF</Button>}
+          {/* FR-15: phiếu chỉ in khi đã duyệt hoàn tất, để thể hiện đủ các cấp xác nhận. */}
+          {r.status === 'APPROVED' && <Button onClick={() => window.print()}>In phiếu / Lưu PDF</Button>}
           {owner && r.status === 'DRAFT' && <Button onClick={() => navigate(`/requests/${r.id}/edit`)}>Sửa</Button>}
           {owner && ['DRAFT', 'PENDING'].includes(r.status) && <Button danger onClick={() => setCancelling(true)}>Hủy yêu cầu</Button>}
           {owner && r.status === 'DRAFT' && <Button type="primary" loading={busy} onClick={submit}>Gửi đề xuất</Button>}
