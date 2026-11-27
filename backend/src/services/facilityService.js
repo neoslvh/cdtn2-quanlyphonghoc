@@ -89,8 +89,9 @@ function createFacilityService({ repo, storage, clock = () => new Date() }) {
     },
 
     /**
-     * Báo hỏng thiết bị trong phòng của phiếu đã duyệt: mô tả bắt buộc, ảnh PNG hoặc JPG tùy chọn (tối đa 5 MB).
-     * Thiết bị chuyển BROKEN. Lỗi: VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, UNSUPPORTED_FILE_TYPE.
+     * Báo hỏng thiết bị trong phòng của phiếu đã duyệt, trong thời gian dùng phòng: mô tả bắt buộc, ảnh PNG hoặc JPG
+     * tùy chọn (tối đa 5 MB). Chỉ thiết bị đang Tốt; thiết bị chuyển BROKEN.
+     * Lỗi: VALIDATION_ERROR, NOT_FOUND, INVALID_STATE, UNSUPPORTED_FILE_TYPE.
      */
     async reportIncident(user, body, file) {
       const b = body || {};
@@ -108,11 +109,20 @@ function createFacilityService({ repo, storage, clock = () => new Date() }) {
       }
       const r = await owned(user, b.requestId);
       if (r.status !== 'APPROVED') throw invalid('Chỉ báo hỏng trong yêu cầu đã duyệt.');
+      // Báo hỏng trong thời gian dùng phòng, cùng khung giờ với check-in.
+      const now = clock();
+      if (now.getTime() < r.startAt.getTime() - CHECKIN_EARLY_MS || now > r.endAt) {
+        throw invalid(`Chỉ báo hỏng được trong thời gian sử dụng phòng, từ ${fmtTime(new Date(r.startAt.getTime() - CHECKIN_EARLY_MS))} đến ${fmtTime(r.endAt)}.`);
+      }
       const e = await repo.findEquipment(b.equipmentId);
       if (!e || !e.room || e.room.id !== r.room.id) throw validation([{ field: 'equipmentId', message: `Thiết bị không thuộc phòng ${r.room.code}.` }]);
+      // Thiết bị đã báo hỏng hoặc đang bảo trì thì không báo lại, tránh báo trùng và đổi sai trạng thái bảo trì.
+      if (e.status !== 'GOOD') throw invalid(e.status === 'BROKEN' ? `Thiết bị ${e.assetCode} đã được báo hỏng và đang chờ xử lý.` : `Thiết bị ${e.assetCode} đang bảo trì.`);
       const imagePath = file ? await storage.save(file.buffer, ext) : null;
       try {
-        const i = await repo.createIncident({ requestId: r.id, equipmentId: e.id, reportedBy: user.id, description, imagePath, imageName: file ? path.basename(file.originalname).slice(0, 255) : null, previousStatus: e.status });
+        const i = await repo.createIncident({ requestId: r.id, equipmentId: e.id, reportedBy: user.id, description, imagePath, imageName: file ? path.basename(file.originalname).slice(0, 255) : null });
+        // null: thiết bị vừa bị người khác báo hỏng giữa lúc kiểm tra và lúc ghi.
+        if (!i) throw invalid(`Thiết bị ${e.assetCode} đã được báo hỏng và đang chờ xử lý.`);
         return toIncident(i);
       } catch (err) {
         if (imagePath && storage.remove) await storage.remove(imagePath);

@@ -38,12 +38,16 @@ function createFacilityRepo(prisma) {
           throw err;
         }),
 
-    /** Tạo báo hỏng, chuyển thiết bị sang BROKEN và ghi nhật ký trong một giao dịch. */
-    createIncident: ({ requestId, equipmentId, reportedBy, description, imagePath, imageName, previousStatus }) =>
+    /**
+     * Tạo báo hỏng, chuyển thiết bị từ GOOD sang BROKEN và ghi nhật ký trong một giao dịch. Cập nhật có điều kiện
+     * status GOOD nên hai báo hỏng cùng lúc chỉ một thành công; trả null nếu thiết bị không còn GOOD.
+     */
+    createIncident: ({ requestId, equipmentId, reportedBy, description, imagePath, imageName }) =>
       prisma.$transaction(async (tx) => {
+        const { count } = await tx.equipment.updateMany({ where: { id: equipmentId, status: 'GOOD' }, data: { status: 'BROKEN' } });
+        if (!count) return null;
         const i = await tx.incidentReport.create({ data: { requestId, equipmentId, reportedBy, description, imagePath, imageName, status: 'OPEN' }, include: incidentInclude });
-        await tx.equipment.update({ where: { id: equipmentId }, data: { status: 'BROKEN' } });
-        await audit(tx, { userId: reportedBy, action: 'INCIDENT_REPORTED', entityType: 'incident_report', entityId: i.id, before: { equipmentStatus: previousStatus }, after: { equipmentId, equipmentStatus: 'BROKEN', requestId } });
+        await audit(tx, { userId: reportedBy, action: 'INCIDENT_REPORTED', entityType: 'incident_report', entityId: i.id, before: { equipmentStatus: 'GOOD' }, after: { equipmentId, equipmentStatus: 'BROKEN', requestId } });
         return i;
       }),
 
