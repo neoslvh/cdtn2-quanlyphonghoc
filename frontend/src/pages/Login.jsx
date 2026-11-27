@@ -18,7 +18,9 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
 
   // Đã đăng nhập (kể cả ngay sau khi bấm Đăng nhập) thì về đúng trang đang mở dở trước khi bị đưa ra trang đăng nhập.
-  if (user) return <Navigate to={location.state?.from || '/'} replace />;
+  // Chỉ nhận đường dẫn nội bộ (một dấu / ở đầu), để không chuyển hướng ra trang ngoài.
+  const from = location.state?.from;
+  if (user) return <Navigate to={typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') ? from : '/'} replace />;
 
   const onFinish = async ({ email, password }) => {
     setBusy(true);
