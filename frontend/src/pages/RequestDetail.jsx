@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Alert, Button, Descriptions, Input, Modal, Spin, Tag, message } from 'antd';
-import { api } from '../api';
+import { api, apiBlob } from '../api';
 import { ConflictAlert, StepsView, fmtRange } from '../components';
 import { EQUIPMENT, REQUEST_STATUS } from '../constants';
 import { useAuth } from '../auth';
@@ -41,6 +41,20 @@ export default function RequestDetail() {
     try {
       setR((await api(`/requests/${r.id}/submit`, { method: 'POST' })).request);
       message.success(`Đã gửi yêu cầu ${r.code}`);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  // FR-15: phiếu PDF do máy chủ dựng, có đủ thông tin và các cấp duyệt, tên tệp là mã phiếu.
+  const downloadPdf = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const url = URL.createObjectURL(await apiBlob(`/requests/${r.id}/pdf`));
+      Object.assign(document.createElement('a'), { href: url, download: `${r.code}.pdf` }).click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
       setError(err);
     } finally {
@@ -97,6 +111,7 @@ export default function RequestDetail() {
           <Button onClick={() => navigate('/requests')}>Về danh sách</Button>
           {/* FR-15: phiếu chỉ in khi đã duyệt hoàn tất, để thể hiện đủ các cấp xác nhận. */}
           {r.status === 'APPROVED' && <Button onClick={() => window.print()}>In phiếu / Lưu PDF</Button>}
+          {r.status === 'APPROVED' && <Button type="primary" loading={busy} onClick={downloadPdf}>Tải phiếu PDF</Button>}
           {owner && r.status === 'DRAFT' && <Button onClick={() => navigate(`/requests/${r.id}/edit`)}>Sửa</Button>}
           {owner && ['DRAFT', 'PENDING'].includes(r.status) && <Button danger onClick={() => setCancelling(true)}>Hủy yêu cầu</Button>}
           {owner && r.status === 'DRAFT' && <Button type="primary" loading={busy} onClick={submit}>Gửi đề xuất</Button>}

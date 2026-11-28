@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { APIRequestContext, expect, test } from '@playwright/test';
 import { ACCOUNTS, approveAll, cleanupCreated, createApprover, createRequest, loginAs, runTag } from './support';
 
@@ -65,6 +66,7 @@ test.describe('E2E-11 hoàn thiện giao diện (Plan 2)', () => {
     await loginAs(page, request, ACCOUNTS.requester.email, `/requests/${pending.id}`);
     await expect(page.getByRole('heading', { name: `Yêu cầu ${pending.code}` })).toBeVisible();
     await expect(page.getByRole('button', { name: 'In phiếu / Lưu PDF' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Tải phiếu PDF' })).toHaveCount(0);
 
     const facility = await createApprover(request, 'Phòng Quản trị cơ sở vật chất');
     const done = await createRequest(request, { purpose: `In phiếu ${runTag()}`, daysAhead: 150 + Math.floor(Math.random() * 1200), hour: 7 + Math.floor(Math.random() * 12), room: 'A.10.02' });
@@ -73,6 +75,12 @@ test.describe('E2E-11 hoàn thiện giao diện (Plan 2)', () => {
     await page.evaluate(() => { (window as unknown as { printed: number }).printed = 0; window.print = () => { (window as unknown as { printed: number }).printed += 1; }; });
     await page.getByRole('button', { name: 'In phiếu / Lưu PDF' }).click();
     expect(await page.evaluate(() => (window as unknown as { printed: number }).printed)).toBe(1);
+
+    // SCRUM-20: tải tệp PDF do máy chủ dựng, tên tệp là mã phiếu.
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Tải phiếu PDF' }).click()]);
+    expect(download.suggestedFilename()).toBe(`${done.code}.pdf`);
+    const file = await download.path();
+    expect(readFileSync(file).subarray(0, 5).toString()).toBe('%PDF-');
   });
 
   test('trên điện thoại menu cuộn ngang, trang không bị tràn chiều ngang', async ({ page, request }) => {
