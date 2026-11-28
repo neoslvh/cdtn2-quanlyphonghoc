@@ -21,6 +21,11 @@ function requestRoutes({ service, guards }) {
 
   router.get('/requests/:id', requireAuth, requireRole('REQUESTER', 'ADMIN', 'FACILITY_STAFF'), async (req, res) => res.json({ request: await service.get(req.user, req.params.id) }));
 
+  router.get('/requests/:id/pdf', requireAuth, requireRole('REQUESTER', 'ADMIN', 'FACILITY_STAFF'), async (req, res) => {
+    const { fileName, buffer } = await service.pdf(req.user, req.params.id);
+    res.type('application/pdf').attachment(fileName).set('Cache-Control', 'no-store').send(buffer);
+  });
+
   router.patch('/requests/:id', requireAuth, requester, async (req, res) => res.json({ request: await service.update(req.user, req.params.id, req.body || {}) }));
 
   router.post('/requests/:id/attachments', requireAuth, requester, upload.single('file'), async (req, res) =>

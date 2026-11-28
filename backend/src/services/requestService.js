@@ -3,6 +3,7 @@ const { ApiError } = require('../errors');
 const { isUuid, validation } = require('../http');
 const { LATEST_END_MINUTES, addWorkdays, minutesOfDay, sameDay } = require('../timeVN');
 const { checkRequestBody } = require('../validators/request');
+const { requestPdf } = require('../pdf');
 
 // Tầng service: quy tắc nghiệp vụ của phiếu đề xuất sử dụng phòng (FR-07, FR-08, FR-09). Không biết gì về HTTP hay SQL.
 // repo, availability, storage và clock được truyền qua constructor nên kiểm thử được mà không cần cơ sở dữ liệu hay đồng hồ thật.
@@ -123,6 +124,16 @@ function createRequestService({ repo, availability, storage, clock = () => new D
       const canSeeAll = ['ADMIN', 'FACILITY_STAFF'].includes(user.role);
       if (!r || (!canSeeAll && r.requesterId !== user.id)) throw notFound();
       return toRequest(r);
+    },
+
+    /**
+     * Phiếu PDF để mang theo khi nhận phòng (FR-15, SCRUM-20). Cùng quyền xem với get; chỉ khi đã duyệt hoàn tất.
+     * Trả { fileName, buffer }. Lỗi: NOT_FOUND, INVALID_STATE.
+     */
+    async pdf(user, id) {
+      const r = await this.get(user, id);
+      if (r.status !== 'APPROVED') throw new ApiError(409, 'INVALID_STATE', 'Chỉ xuất phiếu PDF khi yêu cầu đã được duyệt hoàn tất.');
+      return { fileName: `${r.code}.pdf`, buffer: await requestPdf(r, clock()) };
     },
 
     /** Danh sách phiếu: người đăng ký thấy của mình, ADMIN thấy tất cả. Trả { items, total }. */
