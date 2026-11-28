@@ -19,15 +19,9 @@ Mã QR của phòng, thiết bị và `room.equipmentItems` đã có ở máy ch
 
 GET /rooms/{id}/bookings nhận `from`, `to` (ISO 8601 có múi giờ) và trả `{ items }`, mỗi phần tử `{ requestId, requestCode, startAt, endAt, purpose, requesterName }`, xếp theo giờ bắt đầu. Giao diện mở từ nút Lịch ở trang Quản lý phòng và trang Tra cứu phòng, xem theo tuần.
 
-## 3. Bàn giao, nhận trả (SCRUM-22)
+## 3. Bàn giao, nhận trả, check-in (đã có)
 
-| Phương thức | Đường dẫn | Giao diện gửi | Giao diện cần nhận |
-|---|---|---|---|
-| GET | /requests?status=APPROVED | `page`, `pageSize` | như hiện tại. Cần mở quyền cho FACILITY_STAFF (hiện chỉ REQUESTER và ADMIN), giao diện đang hiện thông báo khi nhận 403 |
-| POST | /requests/{id}/handover | `{ conditionNote }` | `{ request }` |
-| POST | /requests/{id}/return | `{ conditionNote }` | `{ request }` |
-
-Đối tượng `request` trả về bổ sung `handover` là `{ handedOverAt, handedOverBy, conditionNote, returnedAt, returnNote }` hoặc `null`. Trang chi tiết yêu cầu đọc trường này để hiện mục Sử dụng phòng. Check-in (SCRUM-23) và trường `checkin` đã có ở máy chủ, xem `API_QR_CheckIn_BaoHong.md`.
+Bàn giao và nhận trả (SCRUM-22), check-in (SCRUM-23) đã có ở máy chủ, xem `API_QR_CheckIn_BaoHong.md` mục 2 và mục 4.
 
 ## 4. Bảo trì (SCRUM-25)
 

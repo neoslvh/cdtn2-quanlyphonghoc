@@ -6,7 +6,7 @@ Kết quả chạy ngày 27/11/2026 trên nhánh `Khoa` sau khi gộp `staging` 
 
 | Tầng | Số ca | Đạt | Không đạt | Bỏ qua |
 |---|---|---|---|---|
-| Backend: unit, API, tích hợp PostgreSQL thật | 227 | 227 | 0 | 0 |
+| Backend: unit, API, tích hợp PostgreSQL thật | 238 | 238 | 0 | 0 |
 | Giao diện, dữ liệu giả (Vitest) | 53 | 53 | 0 | 0 |
 | Toàn hệ thống trên Chrome (Playwright) | 77 | 72 | 0 | 5 |
 | Toàn hệ thống trên dữ liệu giả (Playwright, `E2E_MOCK=1`) | 4 | 4 | 0 | 0 |
@@ -20,13 +20,13 @@ Bộ test case gốc có 73 ca. Bốn ca viết cho trang chủ kiểu cũ (TC-A
 
 | Trạng thái | Số ca |
 |---|---|
-| Pass | 95 |
+| Pass | 97 |
 | Fail | 1 |
-| Blocked | 13 |
+| Blocked | 11 |
 | Chưa chạy | 1 |
 | Tổng | 110 |
 
-Ca Fail còn lại là TC-FR12-02: phiếu sau 18:00 vẫn đi Phòng Đào tạo thay vì Trung tâm Hỗ trợ Sinh viên vì chuỗi duyệt còn cố định trong mã (SCRUM-17). Mười ba ca Blocked thuộc các chức năng đã có giao diện nhưng máy chủ chưa có API: thiết bị (SCRUM-9), lịch phòng (SCRUM-16), quy tắc duyệt (SCRUM-21), bàn giao (SCRUM-22), bảo trì (SCRUM-25), báo cáo (SCRUM-27). Sáu ca của mã QR, check-in và báo hỏng (TC-FR05-01, TC-FR05-02, TC-FR18-01, TC-FR18-02, TC-FR19-01, TC-FR19-02) chuyển sang Pass sau khi có API ở mục 6. Giao diện của các chức năng này đã đạt khi chạy trên dữ liệu giả. Ca Chưa chạy là TC-NFR05-01, cần năm người ngoài nhóm thử trực tiếp.
+Ca Fail còn lại là TC-FR12-02: phiếu sau 18:00 vẫn đi Phòng Đào tạo thay vì Trung tâm Hỗ trợ Sinh viên vì chuỗi duyệt còn cố định trong mã (SCRUM-17). Mười một ca Blocked thuộc các chức năng đã có giao diện nhưng máy chủ chưa có API: thiết bị (SCRUM-9), lịch phòng (SCRUM-16), quy tắc duyệt (SCRUM-21), bảo trì (SCRUM-25), báo cáo (SCRUM-27). Hai ca bàn giao (TC-FR17-01, TC-FR17-02) chuyển Pass khi có API SCRUM-22. Sáu ca của mã QR, check-in và báo hỏng (TC-FR05-01, TC-FR05-02, TC-FR18-01, TC-FR18-02, TC-FR19-01, TC-FR19-02) chuyển sang Pass sau khi có API ở mục 6. Giao diện của các chức năng này đã đạt khi chạy trên dữ liệu giả. Ca Chưa chạy là TC-NFR05-01, cần năm người ngoài nhóm thử trực tiếp.
 
 ## 3. Đo hiệu năng
 
@@ -54,7 +54,7 @@ Khi kiểm thử phát hiện thêm hai lỗi cấu hình triển khai bằng do
 
 ## 7. Phần chưa tự động hóa được
 
-Quét mã QR bằng camera điện thoại, in phiếu ra giấy, thử với người dùng thật (NFR-05), xem bằng mắt trên điện thoại thật, triển khai Render và đồng bộ Jira tự động (repo chưa có secrets) vẫn phải kiểm tay. Bộ Playwright chưa chạy trong CI của pull request.
+Quét mã QR bằng camera điện thoại, in phiếu ra giấy, thử với người dùng thật (NFR-05), xem bằng mắt trên điện thoại thật, triển khai Render và đồng bộ Jira tự động (repo chưa có secrets) vẫn phải kiểm tay. Bộ Playwright chưa chạy trong CI của pull request. Ca hủy buổi học của E2E-04 chập chờn (lần chạy ngày 28/11/2026: chạy riêng ba lần thì lỗi một lần), do bảng buổi học tải lại sau khi hủy; chưa sửa.
 
 ## 8. Cách chạy lại
 
