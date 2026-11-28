@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { APIRequestContext, expect, test } from '@playwright/test';
 import { ACCOUNTS, approveAll, cleanupCreated, createApprover, createRequest, loginAs, runTag } from './support';
 
@@ -65,6 +66,7 @@ test.describe('E2E-11 hoàn thiện giao diện (Plan 2)', () => {
     await loginAs(page, request, ACCOUNTS.requester.email, `/requests/${pending.id}`);
     await expect(page.getByRole('heading', { name: `Yêu cầu ${pending.code}` })).toBeVisible();
     await expect(page.getByRole('button', { name: 'In phiếu / Lưu PDF' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Tải phiếu PDF' })).toHaveCount(0);
 
     const facility = await createApprover(request, 'Phòng Quản trị cơ sở vật chất');
     const done = await createRequest(request, { purpose: `In phiếu ${runTag()}`, daysAhead: 150 + Math.floor(Math.random() * 1200), hour: 7 + Math.floor(Math.random() * 12), room: 'A.10.02' });
@@ -73,6 +75,12 @@ test.describe('E2E-11 hoàn thiện giao diện (Plan 2)', () => {
     await page.evaluate(() => { (window as unknown as { printed: number }).printed = 0; window.print = () => { (window as unknown as { printed: number }).printed += 1; }; });
     await page.getByRole('button', { name: 'In phiếu / Lưu PDF' }).click();
     expect(await page.evaluate(() => (window as unknown as { printed: number }).printed)).toBe(1);
+
+    // SCRUM-20: tải tệp PDF do máy chủ dựng, tên tệp là mã phiếu.
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Tải phiếu PDF' }).click()]);
+    expect(download.suggestedFilename()).toBe(`${done.code}.pdf`);
+    const file = await download.path();
+    expect(readFileSync(file).subarray(0, 5).toString()).toBe('%PDF-');
   });
 
   test('trên điện thoại menu cuộn ngang, trang không bị tràn chiều ngang', async ({ page, request }) => {
@@ -100,15 +108,6 @@ test.describe('E2E-12 trang chờ API (Plan 3) trên máy chủ chưa có API', 
       await expect(page.getByText(/Lỗi máy chủ|Không tìm thấy API\./)).toHaveCount(0);
     });
   }
-
-  // Tab báo hỏng đã có API (SCRUM-24), kiểm ở E2E-15; ở đây chỉ còn phần bàn giao chờ SCRUM-22.
-  test('Bàn giao: nhân viên cơ sở vật chất thấy hướng dẫn mở quyền; tab báo hỏng không còn báo chưa có API', async ({ page, request }) => {
-    await loginAs(page, request, ACCOUNTS.facility.email, '/facility');
-    await expect(page.getByText('Máy chủ chưa cho nhân viên cơ sở vật chất xem danh sách yêu cầu đã duyệt')).toBeVisible();
-    await page.getByRole('tab', { name: 'Báo hỏng và bảo trì' }).click();
-    await expect(page.getByLabel('Lọc báo hỏng theo trạng thái')).toBeVisible();
-    await expect(page.getByText('Chức năng báo hỏng và bảo trì chưa có API ở máy chủ')).toHaveCount(0);
-  });
 
   // Mã QR đã có API (SCRUM-10), kiểm ở E2E-15; ở đây chỉ còn lịch phòng chờ SCRUM-16.
   test('lịch phòng mở được hộp thoại, báo chưa có API', async ({ page, request }) => {

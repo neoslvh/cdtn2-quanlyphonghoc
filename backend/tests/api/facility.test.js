@@ -216,7 +216,7 @@ describe('SCRUM-24: báo hỏng thiết bị', () => {
     expect((await report(ctx, { requestId: id, equipmentId: ctx.pj.id, description: 'Hỏng' }, null, ctx.staff)).status).toBe(403);
   });
 
-  test('chỉ báo hỏng trong thời gian dùng phòng; ảnh đã lưu bị xóa khi bị từ chối', async () => {
+  test('chỉ báo hỏng trong thời gian dùng phòng', async () => {
     const ctx = setup();
     const id = await approved(ctx);
     for (const t of [fromVN(2026, 11, 9, 7, 44), fromVN(2026, 11, 9, 10, 1)]) {
@@ -239,5 +239,23 @@ describe('SCRUM-24: báo hỏng thiết bị', () => {
     const mt = await report(ctx, { requestId: id, equipmentId: ctx.pj.id, description: 'Hỏng' });
     expect([mt.status, mt.body.error.message, ctx.pj.status]).toEqual([409, 'Thiết bị PJ-A1001-1 đang bảo trì.', 'MAINTENANCE']);
     expect(ctx.db.incidents).toHaveLength(1);
+  });
+
+  test('thiết bị bị người khác báo hỏng giữa lúc kiểm tra và lúc ghi: trả 409 và xóa ảnh vừa lưu', async () => {
+    const ctx = setup();
+    const id = await approved(ctx);
+    ctx.clock.now = fromVN(2026, 11, 9, 9);
+    // Lúc kiểm tra thiết bị còn Tốt, nhưng trước khi ghi đã có báo hỏng khác chuyển sang BROKEN.
+    const find = ctx.db.findEquipment;
+    ctx.db.findEquipment = async (eid) => {
+      const e = await find(eid);
+      ctx.pj.status = 'BROKEN';
+      return { ...e, status: 'GOOD' };
+    };
+    const res = await report(ctx, { requestId: id, equipmentId: ctx.pj.id, description: 'Hỏng' }, { buffer: PNG, name: 'anh.png' });
+    expect([res.status, res.body.error.message]).toEqual([409, 'Thiết bị PJ-A1001-1 đã được báo hỏng và đang chờ xử lý.']);
+    expect(ctx.storage.saved).toHaveLength(1);
+    expect(ctx.storage.removed).toEqual(['file-1.png']);
+    expect(ctx.db.incidents).toHaveLength(0);
   });
 });

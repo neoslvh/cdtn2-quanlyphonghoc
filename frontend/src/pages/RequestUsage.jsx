@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Button, Descriptions, Form, Input, Modal, Select, Upload, message } from 'antd';
+import { Alert, Button, Descriptions, Form, Input, Modal, Select, Tag, Upload, message } from 'antd';
 import dayjs from 'dayjs';
 import { api, isApiPending } from '../api';
 import { PendingApi } from '../components';
 import { EQUIPMENT_STATUS, EQUIPMENT_TYPE } from '../constants';
 
 const at = (v) => (v ? dayjs(v).format('HH:mm DD/MM/YYYY') : null);
+// Danh sách thiết bị trong biên bản bàn giao, nhận trả (FR-17): mã tài sản kèm tình trạng lúc đó.
+const items = (list) => list.map((e) => <Tag key={e.assetCode} color={EQUIPMENT_STATUS[e.status]?.[0]}>{e.assetCode} · {EQUIPMENT_STATUS[e.status]?.[1] || e.status}</Tag>);
 
 // Quét mã QR bằng camera qua BarcodeDetector có sẵn của trình duyệt. Trình duyệt không hỗ trợ thì người dùng nhập mã.
 function QrScanner({ open, onResult, onClose }) {
@@ -142,8 +144,10 @@ export default function RequestUsage({ r, owner, onChange }) {
     <div className="panel no-print">
       <h2>Sử dụng phòng</h2>
       <Descriptions column={1} size="small" bordered>
-        <Descriptions.Item label="Bàn giao">{h ? `${at(h.handedOverAt)}${h.conditionNote ? `, ${h.conditionNote}` : ''}` : 'Chưa bàn giao'}</Descriptions.Item>
-        <Descriptions.Item label="Nhận trả">{h?.returnedAt ? `${at(h.returnedAt)}${h.returnNote ? `, ${h.returnNote}` : ''}` : 'Chưa nhận trả'}</Descriptions.Item>
+        <Descriptions.Item label="Bàn giao">{h ? `${at(h.handedOverAt)}${h.handedOverBy ? `, ${h.handedOverBy}` : ''}${h.conditionNote ? `. ${h.conditionNote}` : ''}` : 'Chưa bàn giao'}</Descriptions.Item>
+        {h?.items?.length > 0 && <Descriptions.Item label="Thiết bị lúc bàn giao">{items(h.items)}</Descriptions.Item>}
+        <Descriptions.Item label="Nhận trả">{h?.returnedAt ? `${at(h.returnedAt)}${h.returnedBy ? `, ${h.returnedBy}` : ''}${h.returnNote ? `. ${h.returnNote}` : ''}` : 'Chưa nhận trả'}</Descriptions.Item>
+        {h?.returnItems?.length > 0 && <Descriptions.Item label="Thiết bị lúc nhận trả">{items(h.returnItems)}</Descriptions.Item>}
         <Descriptions.Item label="Check-in">{r.checkin ? `Đã check-in lúc ${at(r.checkin.checkedInAt)}` : 'Chưa check-in'}</Descriptions.Item>
       </Descriptions>
       {owner && (

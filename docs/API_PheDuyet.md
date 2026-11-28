@@ -9,6 +9,7 @@ Tài liệu này bổ sung cho SRS (FR-10, FR-11, FR-14, FR-21), API Contract m�
 | GET | /approvals | APPROVER | Phiếu PENDING có bước đang chờ đơn vị của người gọi, cũ nhất trước. Phân trang bằng `page`, `pageSize`. |
 | POST | /requests/:id/approve | APPROVER của đơn vị ở bước hiện tại | Đồng ý bước hiện tại, `reason` tùy chọn. Bước cuối tạo `room_booking` ACTIVE và chuyển phiếu sang APPROVED. |
 | POST | /requests/:id/reject | APPROVER của đơn vị ở bước hiện tại | Từ chối, bắt buộc `reason`. Phiếu sang REJECTED, các bước sau bị hủy. |
+| GET | /requests/:id/pdf | REQUESTER (phiếu của mình), FACILITY_STAFF, ADMIN | Phiếu đề xuất dạng PDF (FR-15, SCRUM-20): thông tin yêu cầu, thiết bị, tài liệu đính kèm và từng cấp duyệt kèm thời điểm, ghi chú; tên tệp `REQ-xxx.pdf`. Chỉ khi APPROVED, còn lại trả 409 `INVALID_STATE`. Phông Roboto để hiện đủ dấu tiếng Việt. |
 | GET | /notifications | Đã đăng nhập | Thông báo của chính người gọi, mới nhất trước. Tham số `unread=true` chỉ lấy thông báo chưa đọc. Trả thêm `unread` là tổng số chưa đọc. |
 | PATCH | /notifications/:id/read | Đã đăng nhập | Đánh dấu một thông báo của mình là đã đọc. Thông báo của người khác trả 404. |
 | POST | /notifications/read-all | Đã đăng nhập | Đánh dấu mọi thông báo của mình là đã đọc, trả `updated`. |
@@ -30,4 +31,4 @@ Tài liệu này bổ sung cho SRS (FR-10, FR-11, FR-14, FR-21), API Contract m�
 
 `notification`: `id`, `user_id`, `request_id` (có thể rỗng, ON DELETE SET NULL), `title`, `message`, `read_at`, `created_at`. Chỉ mục theo (`user_id`, `read_at`).
 
-Các giá trị `action` đang dùng: REQUEST_CREATED, REQUEST_UPDATED, REQUEST_SUBMITTED, REQUEST_CANCELLED, REQUEST_STEP_APPROVED, REQUEST_APPROVED, REQUEST_REJECTED, REQUEST_CANCELLED_BY_SCHEDULE, REQUEST_EXPIRED, REQUEST_CHECKED_IN, INCIDENT_REPORTED, ROOM_CREATED, ROOM_UPDATED, SCHEDULE_IMPORT_PREVIEWED, SCHEDULE_IMPORT_COMMITTED, SCHEDULE_IMPORT_DISCARDED, CLASS_SESSION_UPDATED, CLASS_SESSION_CANCELLED.
+Các giá trị `action` đang dùng: REQUEST_CREATED, REQUEST_UPDATED, REQUEST_SUBMITTED, REQUEST_CANCELLED, REQUEST_STEP_APPROVED, REQUEST_APPROVED, REQUEST_REJECTED, REQUEST_CANCELLED_BY_SCHEDULE, REQUEST_EXPIRED, REQUEST_CHECKED_IN, INCIDENT_REPORTED, REQUEST_HANDED_OVER, REQUEST_RETURNED, ROOM_CREATED, ROOM_UPDATED, SCHEDULE_IMPORT_PREVIEWED, SCHEDULE_IMPORT_COMMITTED, SCHEDULE_IMPORT_DISCARDED, CLASS_SESSION_UPDATED, CLASS_SESSION_CANCELLED.

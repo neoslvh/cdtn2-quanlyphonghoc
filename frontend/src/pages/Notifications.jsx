@@ -38,6 +38,11 @@ export default function Notifications() {
       setError(e.message);
     }
   };
+  // Mở yêu cầu từ thông báo nghĩa là đã đọc: đánh dấu luôn và cập nhật số trên thanh trên, không chặn việc chuyển trang.
+  const open = (n) => {
+    if (n.read) return;
+    api(`/notifications/${n.id}/read`, { method: 'PATCH' }).then(notifyChanged, () => {});
+  };
 
   return (
     <>
@@ -72,7 +77,7 @@ export default function Notifications() {
                   </div>
                   <p>{n.message}</p>
                   <div className="notice-actions">
-                    {n.requestId && canOpenRequest && <Link to={`/requests/${n.requestId}`}>Xem yêu cầu</Link>}
+                    {n.requestId && canOpenRequest && <Link to={`/requests/${n.requestId}`} onClick={() => open(n)}>Xem yêu cầu</Link>}
                     {!n.read && <Button type="link" size="small" onClick={() => act(`/notifications/${n.id}/read`, 'PATCH')}>Đánh dấu đã đọc</Button>}
                   </div>
                 </li>

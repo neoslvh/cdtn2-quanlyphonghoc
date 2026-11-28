@@ -52,6 +52,23 @@ test.describe('E2E-09 thông báo (PB-14)', () => {
     await expect(page.getByText('Từ chối').first()).toBeVisible();
   });
 
+  test('bấm Xem yêu cầu ở thông báo chưa đọc thì tự đánh dấu đã đọc, số trên thanh trên giảm', async ({ page, request }) => {
+    await request.post('/api/notifications/read-all', { headers: auth(await apiToken(request, ACCOUNTS.requester.email)) });
+    const reason = `Mở là đọc ${runTag()}`;
+    const r = await rejectedRequest(request, reason, 53);
+    await loginAs(page, request, ACCOUNTS.requester.email, '/notifications');
+    await expect(page.getByRole('link', { name: 'Thông báo, 1 chưa đọc' })).toBeVisible();
+    await page.locator('.notice').filter({ hasText: reason }).getByRole('link', { name: 'Xem yêu cầu' }).click();
+    await expect(page).toHaveURL(new RegExp(`/requests/${r.id}$`));
+    await expect(page.getByRole('link', { name: 'Thông báo', exact: true })).toBeVisible();
+    await expect.poll(() => unread(request)).toBe(0);
+    await page.goBack();
+    const item = page.locator('.notice').filter({ hasText: reason });
+    await expect(item).toBeVisible();
+    await expect(item.getByText('Mới', { exact: true })).toHaveCount(0);
+    await expect(item.getByRole('button', { name: 'Đánh dấu đã đọc' })).toHaveCount(0);
+  });
+
   test('bộ lọc Chưa đọc và nút Đánh dấu tất cả đã đọc', async ({ page, request }) => {
     await request.post('/api/notifications/read-all', { headers: auth(await apiToken(request, ACCOUNTS.requester.email)) });
     const a = await rejectedRequest(request, `Lọc A ${runTag()}`, 51);

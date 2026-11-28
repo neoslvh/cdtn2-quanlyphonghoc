@@ -67,8 +67,6 @@ function NoteModal({ action, onClose, onDone }) {
 function HandoverTab({ canAct }) {
   const list = usePaged('/requests?status=APPROVED');
   const [action, setAction] = useState(null);
-  // Máy chủ hiện chỉ cho Người đăng ký và Quản trị viên xem danh sách yêu cầu.
-  const forbidden = list.error?.status === 403;
   const handoverState = (r) => {
     if (!r.handover) return <Tag>Chưa bàn giao</Tag>;
     if (!r.handover.returnedAt) return <Tag color="gold">Đang sử dụng từ {at(r.handover.handedOverAt)}</Tag>;
@@ -76,8 +74,7 @@ function HandoverTab({ canAct }) {
   };
   return (
     <>
-      {forbidden && <Alert type="info" showIcon style={{ marginBottom: 12 }} title="Máy chủ chưa cho nhân viên cơ sở vật chất xem danh sách yêu cầu đã duyệt" description="Cần mở quyền GET /api/requests cho FACILITY_STAFF (SCRUM-22). Giao diện đã sẵn sàng." />}
-      {list.error && !forbidden && <Alert type="error" showIcon title={list.error.message} style={{ marginBottom: 12 }} />}
+      {list.error && <Alert type="error" showIcon title={list.error.message} style={{ marginBottom: 12 }} />}
       <Table
         rowKey="id"
         size="middle"

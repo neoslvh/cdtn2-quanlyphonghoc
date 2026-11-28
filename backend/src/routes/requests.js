@@ -12,7 +12,7 @@ function requestRoutes({ service, guards }) {
 
   router.post('/requests', requireAuth, requester, async (req, res) => res.status(201).json({ request: await service.create(req.user, req.body || {}) }));
 
-  router.get('/requests', requireAuth, requireRole('REQUESTER', 'ADMIN'), async (req, res) => {
+  router.get('/requests', requireAuth, requireRole('REQUESTER', 'ADMIN', 'FACILITY_STAFF'), async (req, res) => {
     const paging = pageParams(req.query);
     const status = typeof req.query.status === 'string' ? req.query.status : undefined;
     const { items, total } = await service.list(req.user, { status }, paging);
@@ -20,6 +20,11 @@ function requestRoutes({ service, guards }) {
   });
 
   router.get('/requests/:id', requireAuth, requireRole('REQUESTER', 'ADMIN', 'FACILITY_STAFF'), async (req, res) => res.json({ request: await service.get(req.user, req.params.id) }));
+
+  router.get('/requests/:id/pdf', requireAuth, requireRole('REQUESTER', 'ADMIN', 'FACILITY_STAFF'), async (req, res) => {
+    const { fileName, buffer } = await service.pdf(req.user, req.params.id);
+    res.type('application/pdf').attachment(fileName).set('Cache-Control', 'no-store').send(buffer);
+  });
 
   router.patch('/requests/:id', requireAuth, requester, async (req, res) => res.json({ request: await service.update(req.user, req.params.id, req.body || {}) }));
 

@@ -1,6 +1,6 @@
-# API mã QR, check-in và báo hỏng
+# API mã QR, check-in, báo hỏng và bàn giao
 
-Tài liệu mô tả các API của FR-05 (SCRUM-10), FR-18 (SCRUM-23) và FR-19 (SCRUM-24). Đường dẫn đặt dưới `/api`, lỗi theo mẫu chung `{ error: { code, message, details } }` của API Contract mục 1.1. Dữ liệu lưu ở hai bảng `checkin` và `incident_report` theo ERD v4.1 (migration `20261129000000_checkin_bao_hong`); bảng `incident_report` có thêm cột `image_name` giữ tên gốc của ảnh để hiển thị.
+Tài liệu mô tả các API của FR-05 (SCRUM-10), FR-18 (SCRUM-23), FR-19 (SCRUM-24) và FR-17 (SCRUM-22). Đường dẫn đặt dưới `/api`, lỗi theo mẫu chung `{ error: { code, message, details } }` của API Contract mục 1.1. Dữ liệu lưu ở hai bảng `checkin` và `incident_report` theo ERD v4.1 (migration `20261129000000_checkin_bao_hong`); bảng `incident_report` có thêm cột `image_name` giữ tên gốc của ảnh để hiển thị.
 
 ## 1. Mã QR của phòng và thiết bị (SCRUM-10)
 
@@ -43,3 +43,17 @@ POST /incidents, quyền REQUESTER, nhận multipart gồm `requestId`, `equipme
 - Tạo báo hỏng ở trạng thái `OPEN`, chuyển thiết bị sang `BROKEN` và ghi nhật ký `INCIDENT_REPORTED` trong cùng một giao dịch. Thiết bị chỉ được đổi khi còn `GOOD` (cập nhật có điều kiện), nên hai người báo cùng lúc thì một người nhận 409. Bị từ chối hoặc lưu cơ sở dữ liệu thất bại thì xóa ảnh đã lưu.
 
 GET /incidents, quyền FACILITY_STAFF và ADMIN, nhận `status` (`OPEN`, `IN_PROGRESS`, `RESOLVED`), `page`, `pageSize`, trả `{ items, page, pageSize, total }`, mới nhất trước. Mỗi phần tử gồm `{ id, createdAt, description, imageName, status, reporterName, request: { id, code }, room: { code }, equipment: { id, assetCode, name }, ticket }`. `ticket` là `null` cho đến khi có phiếu bảo trì (SCRUM-25).
+
+## 4. Bàn giao và nhận trả phòng (SCRUM-22)
+
+| Phương thức | Đường dẫn | Quyền | Mô tả |
+|---|---|---|---|
+| GET | /requests?status=APPROVED | REQUESTER, FACILITY_STAFF, ADMIN | Nhân viên cơ sở vật chất và quản trị viên thấy mọi phiếu; người đăng ký chỉ thấy phiếu của mình |
+| POST | /requests/{id}/handover | FACILITY_STAFF, ADMIN | Nhận `{ conditionNote }` (tùy chọn, tối đa 1.000 ký tự), trả `{ request }` |
+| POST | /requests/{id}/return | FACILITY_STAFF, ADMIN | Nhận `{ conditionNote }` là tình trạng sau sử dụng, trả `{ request }` |
+
+Bàn giao chỉ cho phiếu `APPROVED`, chưa bàn giao và chưa quá giờ kết thúc; nhận trả chỉ khi đã bàn giao và chưa nhận trả. Sai điều kiện trả 409 `INVALID_STATE` với các thông báo "Chỉ bàn giao yêu cầu đã duyệt.", "Yêu cầu này đã được bàn giao.", "Đã quá giờ kết thúc sử dụng nên không bàn giao được.", "Yêu cầu chưa được bàn giao.", "Yêu cầu này đã nhận trả.". Ghi chú quá dài trả 400 với `field = 'conditionNote'`.
+
+Dữ liệu lưu ở bảng `usage_handover` theo ERD v4.1 (migration `20261129010000_ban_giao`), thêm `return_note` và hai cột JSONB `handover_items`, `return_items` là danh sách thiết bị của phòng kèm tình trạng tại thời điểm bàn giao và nhận trả. Mỗi phiếu một biên bản nhờ unique `request_id`; nhận trả là cập nhật có điều kiện `returned_at IS NULL`, nên hai lần bấm cùng lúc chỉ một lần thành công. CHECK bảo đảm người và thời điểm nhận trả đi cùng nhau, thời điểm nhận trả không trước thời điểm bàn giao. Nhật ký ghi `REQUEST_HANDED_OVER` và `REQUEST_RETURNED`.
+
+Đối tượng `request` có thêm `handover` là `null` hoặc `{ handedOverAt, handedOverBy, conditionNote, items, returnedAt, returnedBy, returnNote, returnItems }`, trong đó `handedOverBy`, `returnedBy` là họ tên, `items`, `returnItems` là danh sách `{ assetCode, name, equipmentType, status }`. Trang chi tiết phiếu hiện lại biên bản ở mục Sử dụng phòng.

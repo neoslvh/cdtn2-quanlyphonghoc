@@ -329,6 +329,20 @@ function fakeDb() {
       audit.push({ userId: reportedBy, action: 'INCIDENT_REPORTED', entityType: 'incident_report', entityId: i.id });
       return incidentView(i);
     },
+    createHandover: async ({ requestId, userId, now, note, items }) => {
+      const r = requests.find((x) => x.id === requestId);
+      if (r.handover) return false;
+      r.handover = { handedOverAt: now, handedBy: { fullName: users.find((u) => u.id === userId).fullName }, conditionNote: note, handoverItems: items, returnedAt: null, returner: null, returnNote: null, returnItems: null };
+      audit.push({ userId, action: 'REQUEST_HANDED_OVER', entityType: 'usage_request', entityId: requestId });
+      return true;
+    },
+    returnHandover: async ({ requestId, userId, now, note, items }) => {
+      const h = requests.find((x) => x.id === requestId).handover;
+      if (!h || h.returnedAt) return false;
+      Object.assign(h, { returnedAt: now, returner: { fullName: users.find((u) => u.id === userId).fullName }, returnNote: note, returnItems: items });
+      audit.push({ userId, action: 'REQUEST_RETURNED', entityType: 'usage_request', entityId: requestId });
+      return true;
+    },
     listIncidents: async ({ status, page, pageSize }) => {
       const all = incidents.filter((i) => !status || i.status === status).slice().reverse();
       return { items: all.slice((page - 1) * pageSize, page * pageSize).map(incidentView), total: all.length };

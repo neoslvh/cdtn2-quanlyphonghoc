@@ -70,7 +70,7 @@ export async function createRequest(
     data: { organizationId: orgs.find((o: { name: string }) => o.name === 'Khoa Công nghệ thông tin').id, roomId: rooms.find((r: { code: string }) => r.code === room).id, purpose, startAt: at(hour), endAt: at(hour + hours), participantCount },
   });
   if (res.status() !== 201) throw new Error(`Tạo phiếu thất bại: ${res.status()} ${await res.text()}`);
-  const r = (await res.json()).request as { id: string; code: string; steps: { organizationName: string; status: string }[] };
+  const r = (await res.json()).request as { id: string; code: string; startAt: string; endAt: string; steps: { organizationName: string; status: string }[] };
   created.requests.push(r.id);
   if (!submit) return r;
   const sent = await request.post(`/api/requests/${r.id}/submit`, { headers });

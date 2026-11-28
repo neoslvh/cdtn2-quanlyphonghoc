@@ -51,6 +51,28 @@ function createFacilityRepo(prisma) {
         return i;
       }),
 
+    /** Lập biên bản bàn giao kèm nhật ký. Trả false nếu yêu cầu đã có biên bản (ràng buộc unique request_id). */
+    createHandover: ({ requestId, userId, now, note, items }) =>
+      prisma
+        .$transaction(async (tx) => {
+          await tx.usageHandover.create({ data: { requestId, handedOverBy: userId, handedOverAt: now, conditionNote: note, handoverItems: items } });
+          await audit(tx, { userId, action: 'REQUEST_HANDED_OVER', entityType: 'usage_request', entityId: requestId, after: { handedOverAt: now.toISOString(), conditionNote: note, items } });
+          return true;
+        })
+        .catch((err) => {
+          if (isUniqueViolation(err)) return false;
+          throw err;
+        }),
+
+    /** Ghi nhận trả có điều kiện chưa nhận trả, kèm nhật ký. Trả false nếu đã nhận trả trước đó. */
+    returnHandover: ({ requestId, userId, now, note, items }) =>
+      prisma.$transaction(async (tx) => {
+        const { count } = await tx.usageHandover.updateMany({ where: { requestId, returnedAt: null }, data: { returnedBy: userId, returnedAt: now, returnNote: note, returnItems: items } });
+        if (!count) return false;
+        await audit(tx, { userId, action: 'REQUEST_RETURNED', entityType: 'usage_request', entityId: requestId, after: { returnedAt: now.toISOString(), returnNote: note, items } });
+        return true;
+      }),
+
     /** Báo hỏng mới nhất trước, lọc theo trạng thái. Trả { items, total }. */
     listIncidents: async ({ status, page, pageSize }) => {
       const where = status ? { status } : {};
