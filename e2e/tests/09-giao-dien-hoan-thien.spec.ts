@@ -109,15 +109,6 @@ test.describe('E2E-12 trang chờ API (Plan 3) trên máy chủ chưa có API', 
     });
   }
 
-  // Tab báo hỏng đã có API (SCRUM-24), kiểm ở E2E-15; ở đây chỉ còn phần bàn giao chờ SCRUM-22.
-  test('Bàn giao: nhân viên cơ sở vật chất thấy hướng dẫn mở quyền; tab báo hỏng không còn báo chưa có API', async ({ page, request }) => {
-    await loginAs(page, request, ACCOUNTS.facility.email, '/facility');
-    await expect(page.getByText('Máy chủ chưa cho nhân viên cơ sở vật chất xem danh sách yêu cầu đã duyệt')).toBeVisible();
-    await page.getByRole('tab', { name: 'Báo hỏng và bảo trì' }).click();
-    await expect(page.getByLabel('Lọc báo hỏng theo trạng thái')).toBeVisible();
-    await expect(page.getByText('Chức năng báo hỏng và bảo trì chưa có API ở máy chủ')).toHaveCount(0);
-  });
-
   // Mã QR đã có API (SCRUM-10), kiểm ở E2E-15; ở đây chỉ còn lịch phòng chờ SCRUM-16.
   test('lịch phòng mở được hộp thoại, báo chưa có API', async ({ page, request }) => {
     await loginAs(page, request, ACCOUNTS.facility.email, '/rooms');
