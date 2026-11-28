@@ -41,6 +41,8 @@ model User {
   auditLogs          AuditLog[]
   notifications      Notification[]
   checkins           Checkin[]
+  handovers          UsageHandover[]     @relation("HandedOverBy")
+  returns            UsageHandover[]     @relation("ReturnedBy")
   incidents          IncidentReport[]
 
   @@map("user")
@@ -162,6 +164,7 @@ model UsageRequest {
   booking          RoomBooking?
   notifications    Notification[]
   checkin          Checkin?
+  handover         UsageHandover?
   incidents        IncidentReport[]
 
   @@index([status, startAt])
@@ -292,4 +295,24 @@ model IncidentReport {
 
   @@index([status, createdAt])
   @@map("incident_report")
+}
+
+// FR-17: bàn giao và nhận trả phòng (SCRUM-22). Mỗi yêu cầu một biên bản; items là danh sách thiết bị của phòng
+// kèm tình trạng tại thời điểm bàn giao và nhận trả.
+model UsageHandover {
+  id            String       @id @default(uuid()) @db.Uuid
+  requestId     String       @unique @map("request_id") @db.Uuid
+  request       UsageRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  handedOverBy  String       @map("handed_over_by") @db.Uuid
+  handedBy      User         @relation("HandedOverBy", fields: [handedOverBy], references: [id])
+  handedOverAt  DateTime     @map("handed_over_at") @db.Timestamptz
+  conditionNote String?      @map("condition_note")
+  handoverItems Json         @default("[]") @map("handover_items")
+  returnedBy    String?      @map("returned_by") @db.Uuid
+  returner      User?        @relation("ReturnedBy", fields: [returnedBy], references: [id], onDelete: Restrict)
+  returnedAt    DateTime?    @map("returned_at") @db.Timestamptz
+  returnNote    String?      @map("return_note")
+  returnItems   Json?        @map("return_items")
+
+  @@map("usage_handover")
 }
