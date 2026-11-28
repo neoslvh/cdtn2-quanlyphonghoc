@@ -12,6 +12,7 @@ const include = {
   attachments: { orderBy: { createdAt: 'asc' } },
   steps: { include: { approverOrg: { select: { name: true } } }, orderBy: { stepNo: 'asc' } },
   checkin: { select: { checkedInAt: true, result: true } },
+  handover: { include: { handedBy: { select: { fullName: true } }, returner: { select: { fullName: true } } } },
 };
 
 // Phiếu từ Prisma sang dạng phẳng mà service dùng.

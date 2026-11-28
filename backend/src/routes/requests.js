@@ -12,7 +12,7 @@ function requestRoutes({ service, guards }) {
 
   router.post('/requests', requireAuth, requester, async (req, res) => res.status(201).json({ request: await service.create(req.user, req.body || {}) }));
 
-  router.get('/requests', requireAuth, requireRole('REQUESTER', 'ADMIN'), async (req, res) => {
+  router.get('/requests', requireAuth, requireRole('REQUESTER', 'ADMIN', 'FACILITY_STAFF'), async (req, res) => {
     const paging = pageParams(req.query);
     const status = typeof req.query.status === 'string' ? req.query.status : undefined;
     const { items, total } = await service.list(req.user, { status }, paging);

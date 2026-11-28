@@ -57,6 +57,19 @@ const toRequest = (r) => ({
   cancelReason: r.cancelReason || null,
   // FR-18: thời điểm check-in tại phòng (SCRUM-23).
   checkin: r.checkin ? { checkedInAt: r.checkin.checkedInAt.toISOString(), result: r.checkin.result } : null,
+  // FR-17: biên bản bàn giao, nhận trả kèm danh sách thiết bị và tình trạng trước, sau sử dụng (SCRUM-22).
+  handover: r.handover
+    ? {
+        handedOverAt: r.handover.handedOverAt.toISOString(),
+        handedOverBy: r.handover.handedBy.fullName,
+        conditionNote: r.handover.conditionNote || null,
+        items: r.handover.handoverItems || [],
+        returnedAt: r.handover.returnedAt ? r.handover.returnedAt.toISOString() : null,
+        returnedBy: r.handover.returner ? r.handover.returner.fullName : null,
+        returnNote: r.handover.returnNote || null,
+        returnItems: r.handover.returnItems || null,
+      }
+    : null,
 });
 
 /**
@@ -136,9 +149,10 @@ function createRequestService({ repo, availability, storage, clock = () => new D
       return { fileName: `${r.code}.pdf`, buffer: await requestPdf(r, clock()) };
     },
 
-    /** Danh sách phiếu: người đăng ký thấy của mình, ADMIN thấy tất cả. Trả { items, total }. */
+    /** Danh sách phiếu: người đăng ký thấy của mình, ADMIN và FACILITY_STAFF (để bàn giao) thấy tất cả. Trả { items, total }. */
     async list(user, { status }, paging) {
-      const { items, total } = await repo.listRequests({ requesterId: user.role === 'ADMIN' ? undefined : user.id, status, ...paging });
+      const all = ['ADMIN', 'FACILITY_STAFF'].includes(user.role);
+      const { items, total } = await repo.listRequests({ requesterId: all ? undefined : user.id, status, ...paging });
       return { items: items.map(toRequest), total };
     },
 

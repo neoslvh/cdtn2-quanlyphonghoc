@@ -26,6 +26,9 @@ function facilityRoutes({ service, guards }) {
   router.get('/equipment/:id/qr', requireAuth, staff, async (req, res) => svg(res, await service.equipmentQr(req.params.id, base(req))));
   router.get('/qr/:token', requireAuth, async (req, res) => res.json(await service.resolveQr(req.params.token)));
 
+  router.post('/requests/:id/handover', requireAuth, staff, async (req, res) => res.json({ request: await service.handover(req.user, req.params.id, req.body) }));
+  router.post('/requests/:id/return', requireAuth, staff, async (req, res) => res.json({ request: await service.returnRoom(req.user, req.params.id, req.body) }));
+
   router.post('/requests/:id/checkin', requireAuth, requester, async (req, res) => res.json({ request: await service.checkin(req.user, req.params.id, req.body) }));
 
   router.post('/incidents', requireAuth, requester, upload.single('image'), async (req, res) => res.status(201).json({ incident: await service.reportIncident(req.user, req.body, req.file) }));

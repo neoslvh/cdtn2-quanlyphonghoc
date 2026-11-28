@@ -11,6 +11,14 @@ const CHECKIN_EARLY_MS = 15 * 60 * 1000;
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg'];
 const MAX_DESCRIPTION = 2000;
 const INCIDENT_STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED'];
+const MAX_NOTE = 1000;
+// Ảnh chụp tình trạng một thiết bị tại thời điểm bàn giao hoặc nhận trả, lưu vào biên bản.
+const snapshot = (e) => ({ assetCode: e.assetCode, name: e.name, equipmentType: e.equipmentType, status: e.status });
+const noteOf = (v) => {
+  if (v === undefined || v === null) return null;
+  if (typeof v !== 'string' || v.trim().length > MAX_NOTE) throw validation([{ field: 'conditionNote', message: `Ghi chú tình trạng tối đa ${MAX_NOTE} ký tự.` }]);
+  return v.trim() || null;
+};
 
 const toEquipment = (e) => ({ id: e.id, assetCode: e.assetCode, name: e.name, equipmentType: e.equipmentType, status: e.status, qrToken: e.qrToken, room: e.room ? { id: e.room.id, code: e.room.code } : null });
 const toQrRoom = (r) => ({ id: r.id, code: r.code, name: r.name, roomType: r.roomType, capacity: r.capacity, status: r.status });
@@ -128,6 +136,35 @@ function createFacilityService({ repo, storage, clock = () => new Date() }) {
         if (imagePath && storage.remove) await storage.remove(imagePath);
         throw err;
       }
+    },
+
+    /**
+     * Bàn giao phòng cho phiếu đã duyệt (FR-17, SCRUM-22): lưu người, thời điểm, ghi chú và danh sách thiết bị của phòng
+     * kèm tình trạng lúc bàn giao. Lỗi: NOT_FOUND, INVALID_STATE, VALIDATION_ERROR.
+     */
+    async handover(user, id, body) {
+      const note = noteOf((body || {}).conditionNote);
+      const r = isUuid(id) ? await repo.findRequest(id) : null;
+      if (!r) throw notFound('yêu cầu');
+      if (r.status !== 'APPROVED') throw invalid('Chỉ bàn giao yêu cầu đã duyệt.');
+      if (r.handover) throw invalid('Yêu cầu này đã được bàn giao.');
+      const now = clock();
+      if (now > r.endAt) throw invalid('Đã quá giờ kết thúc sử dụng nên không bàn giao được.');
+      const items = (await repo.listRoomEquipment(r.room.id)).map(snapshot);
+      if (!(await repo.createHandover({ requestId: r.id, userId: user.id, now, note, items }))) throw invalid('Yêu cầu này đã được bàn giao.');
+      return toRequest(await repo.findRequest(r.id));
+    },
+
+    /** Nhận trả phòng sau khi dùng: lưu người, thời điểm, ghi chú và tình trạng thiết bị lúc nhận trả. Lỗi: NOT_FOUND, INVALID_STATE, VALIDATION_ERROR. */
+    async returnRoom(user, id, body) {
+      const note = noteOf((body || {}).conditionNote);
+      const r = isUuid(id) ? await repo.findRequest(id) : null;
+      if (!r) throw notFound('yêu cầu');
+      if (!r.handover) throw invalid('Yêu cầu chưa được bàn giao.');
+      if (r.handover.returnedAt) throw invalid('Yêu cầu này đã nhận trả.');
+      const items = (await repo.listRoomEquipment(r.room.id)).map(snapshot);
+      if (!(await repo.returnHandover({ requestId: r.id, userId: user.id, now: clock(), note, items }))) throw invalid('Yêu cầu này đã nhận trả.');
+      return toRequest(await repo.findRequest(r.id));
     },
 
     /** Danh sách báo hỏng cho nhân viên cơ sở vật chất. Lỗi: VALIDATION_ERROR khi trạng thái lọc sai. */
