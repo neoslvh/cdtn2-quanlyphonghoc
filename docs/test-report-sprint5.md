@@ -8,7 +8,7 @@ Kết quả chạy ngày 27/11/2026 trên nhánh `Khoa` sau khi gộp `staging` 
 |---|---|---|---|---|
 | Backend: unit, API, tích hợp PostgreSQL thật | 238 | 238 | 0 | 0 |
 | Giao diện, dữ liệu giả (Vitest) | 53 | 53 | 0 | 0 |
-| Toàn hệ thống trên Chrome (Playwright) | 77 | 72 | 0 | 5 |
+| Toàn hệ thống trên Chrome (Playwright) | 77 | 71 | 1 | 5 |
 | Toàn hệ thống trên dữ liệu giả (Playwright, `E2E_MOCK=1`) | 4 | 4 | 0 | 0 |
 | Lặp lại trên Microsoft Edge (Playwright, `E2E_CHANNEL=msedge`) | 40 | 40 | 0 | 0 |
 
